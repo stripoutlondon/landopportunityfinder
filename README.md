@@ -1,52 +1,54 @@
-# Land Opportunity Finder - Project Atlas
+# Land Opportunity Finder — Project Atlas
 
-A deployable Next.js and Supabase foundation for an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
+Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.1 capabilities
+## Release 0.2 capabilities
 
 - Ranked opportunity dashboard and investigation pages
-- Transparent scoring API
-- CSV opportunity ingestion
-- Atlas source registry
-- Supabase schema for territories, sources, ingestion runs, evidence, relationships, investigations, verification tasks and outcomes
-- Demo records that are clearly labelled as demonstrations
+- Transparent opportunity scoring
+- Source registry for the Hertsmere pilot
+- Tolerant planning and brownfield CSV normalisers
+- Repeat-safe Supabase ingestion using stable external and evidence keys
+- Ingestion-run audit trail with rejection reasons
+- One fresh-database Supabase setup file
 
 ## Local development
 
 ```bash
-cp .env.example .env.local
 npm install
+npm run typecheck
+npm test
 npm run build
 npm run dev
 ```
 
 ## Supabase setup
 
-Run these migrations in order in the Supabase SQL editor:
+For a new Supabase project, run only:
 
-1. `supabase/migrations/001_initial.sql`
-2. `supabase/migrations/002_atlas_core.sql`
+```text
+supabase/000_atlas_foundation.sql
+```
 
-Set the following environment variables in Vercel:
+The older files under `supabase/migrations` are retained as historical migrations for databases that already used Release 0.1. Do not run them after the fresh-database setup file.
+
+Set these variables in Vercel:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-Never expose the service-role key in browser code or commit it to GitHub.
+The service-role key is server-only and must never be exposed in browser code or committed.
 
-## API
+## Hertsmere ingestion API
 
-- `GET /api/sources` - configured Hertsmere source registry
-- `POST /api/opportunities/score` - deterministic, explainable score
-- `POST /api/opportunities/import` - multipart CSV import using field name `file`
+Send `multipart/form-data` to `POST /api/ingestion/hertsmere` with:
 
-## Documentation
+- `source`: `planning` or `brownfield`
+- `file`: the source CSV
 
-- `docs/VISION.md`
-- `docs/ARCHITECTURE.md`
-- `docs/ROADMAP.md`
+The normalisers accept common variations of Hertsmere and national brownfield-register headings. Rows without a traceable source reference or address are rejected and counted in the ingestion report. Re-importing the same source record updates the existing opportunity and evidence rather than creating duplicates.
 
 ## Legal positioning
 
-The product surfaces leads and evidence. It must not label land ownerless or imply a right to enter or occupy it. Unregistered is not the same as unowned, and apparent map gaps require formal verification.
+Atlas surfaces leads and evidence. It must not label land ownerless or imply a right to enter or occupy it. Unregistered land is not necessarily unowned, and apparent map gaps require formal verification.
