@@ -1,0 +1,24 @@
+export type Opportunity = {
+  id: string;
+  name: string;
+  address: string | null;
+  locality: string | null;
+  postcode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  area_sqm: number | null;
+  source_type: string;
+  ownership_status: string | null;
+  company_status: string | null;
+  vacancy_signal: number;
+  planning_signal: number;
+  access_signal: number;
+  assembly_signal: number;
+  constraint_penalty: number;
+  evidence_confidence: number;
+  opportunity_score: number;
+  acquisition_route: string | null;
+  rationale: string | null;
+  status: string;
+  created_at: string;
+};

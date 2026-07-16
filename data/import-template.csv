@@ -1,0 +1,2 @@
+name,address,locality,postcode,latitude,longitude,area_sqm,source_type,source_reference,ownership_status,proprietor_name,company_number,company_status,title_number,vacancy_signal,planning_signal,access_signal,assembly_signal,constraint_penalty,evidence_confidence,acquisition_route,rationale,status
+Example parcel,Example only,Borehamwood,,,,650,manual,,unclear,,,,,70,75,80,55,20,60,Verify title and approach owner,,new
