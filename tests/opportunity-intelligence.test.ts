@@ -26,5 +26,53 @@ test("derives developer-facing capacity, planning, ownership and location intell
 
 test("distinguishes public ownership without misclassifying private wording", () => {
   assert.equal(deriveOpportunityIntelligence(opportunity({ ownership_status: "owned-by-a-public-authority" })).ownershipGroup, "public");
+  assert.equal(deriveOpportunityIntelligence(opportunity({ ownership_status: "mixed-ownership" })).ownershipGroup, "mixed");
   assert.equal(deriveOpportunityIntelligence(opportunity({ ownership_status: null, raw_evidence: {} })).ownershipGroup, "unknown");
+});
+
+test("flags an old unstarted permission and extracts planning references", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    source_reference: "BR001",
+    raw_evidence: {
+      "planning-permission-status": "permissioned",
+      "planning-permission-date": "2019-05-17",
+      "planning-permission-history": "https://example.test/planning",
+      "site-plan-url": "https://example.test/plan.pdf",
+      "ownership-status": "owned-by-a-public-authority",
+      "minimum-net-dwellings": "26",
+      notes: "Demolition approved under 19/0483/FUL",
+    },
+  }), new Date("2026-07-21T00:00:00Z"));
+  assert.equal(result.stalePlanning, true);
+  assert.equal(result.planningAgeYears, 7);
+  assert.deepEqual(result.planningReferences, ["19/0483/FUL"]);
+  assert.ok(result.priorityReasons.includes("7-year-old permission needs status check"));
+  assert.ok(result.evidenceReadiness >= 70);
+});
+
+test("does not flag a permission where the source says development started", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    raw_evidence: {
+      "planning-permission-status": "permissioned",
+      "planning-permission-date": "2015-12-18",
+      notes: "STARTED (15/0058/FUL)",
+    },
+  }), new Date("2026-07-21T00:00:00Z"));
+  assert.equal(result.stalePlanning, false);
+  assert.deepEqual(result.planningReferences, ["15/0058/FUL"]);
+});
+
+test("creates explicit evidence gaps and human next actions", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    ownership_status: null,
+    source_reference: null,
+    postcode: null,
+    latitude: null,
+    longitude: null,
+    raw_evidence: { "planning-permission-status": "not permissioned" },
+  }));
+  assert.ok(result.evidenceReadiness < 50);
+  assert.ok(result.evidenceGaps.includes("current title and registered proprietor"));
+  assert.ok(result.nextActions.some((action) => action.type === "title" && action.priority === "high"));
+  assert.ok(result.nextActions.some((action) => action.type === "planning"));
 });

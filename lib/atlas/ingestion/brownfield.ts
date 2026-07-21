@@ -24,6 +24,9 @@ export class HertsmereBrownfieldNormalizer implements AtlasNormalizer {
     const longitude = point?.longitude ?? plausibleCoordinate(readNumber(record, ["longitude", "lng", "lon"]), "longitude");
     const entityId = readField(record, ["entity"]);
     const sourceUrl = entityId ? `https://www.planning.data.gov.uk/entity/${entityId}` : undefined;
+    const sitePlanUrl = readField(record, ["site-plan-url", "site plan url"]);
+    const planningHistoryUrl = readField(record, ["planning-permission-history", "planning permission history"]);
+    const planningPermissionDate = readField(record, ["planning-permission-date", "planning permission date"]);
     const statusText = status.toLowerCase();
     const planningSignal = /not permissioned|expired|lapsed|withdrawn|refused/.test(statusText)
       ? 84
@@ -64,7 +67,15 @@ export class HertsmereBrownfieldNormalizer implements AtlasNormalizer {
         evidenceKey: `${externalKey}:planning-position`, evidenceType: "planning_status", title: "Recorded planning position",
         summary: `${status}${permissionType ? `; permission type: ${permissionType}` : ""}`,
         sourceReference: reference, sourceUrl, confidence: 90, payload: record,
-      }],
+      }, ...(sitePlanUrl ? [{
+        evidenceKey: `${externalKey}:site-plan`, evidenceType: "official_site_plan", title: "Official brownfield site plan",
+        summary: "Site plan published with the Hertsmere brownfield register entry.",
+        sourceReference: reference, sourceUrl: sitePlanUrl, confidence: 95, payload: { sitePlanUrl },
+      }] : []), ...(planningHistoryUrl ? [{
+        evidenceKey: `${externalKey}:planning-history`, evidenceType: "planning_history", title: "Direct planning portal record",
+        summary: `Hertsmere planning history link${planningPermissionDate ? `; recorded decision date: ${planningPermissionDate}` : ""}.`,
+        sourceReference: reference, sourceUrl: planningHistoryUrl, observedAt: planningPermissionDate ?? undefined, confidence: 95, payload: { planningHistoryUrl, planningPermissionDate },
+      }] : [])],
     }};
   }
 }

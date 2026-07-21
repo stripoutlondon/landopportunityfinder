@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./sprint3.css";
 import "leaflet/dist/leaflet.css";
 
 export const metadata = {

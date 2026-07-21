@@ -31,6 +31,21 @@ test("brownfield normaliser extracts postcodes and rejects ended register entrie
   assert.deepEqual(historical, { accepted: false, reason: "historical brownfield entry" });
 });
 
+test("brownfield normaliser preserves official site-plan and planning-history evidence", () => {
+  const result = new HertsmereBrownfieldNormalizer().normalize({
+    reference: "BR001",
+    "site-address": "The Directors Arms, Borehamwood, WD6 2HS",
+    "site-plan-url": "https://example.test/site-plan.pdf",
+    "planning-permission-history": "https://example.test/planning/19-0483",
+    "planning-permission-date": "2019-05-17",
+  });
+  assert.equal(result.accepted, true);
+  if (!result.accepted) return;
+  assert.equal(result.lead.evidence.length, 4);
+  assert.ok(result.lead.evidence.some((item) => item.evidenceType === "official_site_plan"));
+  assert.ok(result.lead.evidence.some((item) => item.evidenceType === "planning_history" && item.observedAt === "2019-05-17"));
+});
+
 test("planning normaliser recognises Hertsmere aliases and refused applications", () => {
   const result = new HertsmerePlanningNormalizer().normalize({ "Application Number": "24/1234/FUL", "Site Address": "1 High Street, Borehamwood", Proposal: "Demolition and 8 flats", Decision: "Refused", "Decision Date": "2025-03-01" });
   assert.equal(result.accepted, true);
