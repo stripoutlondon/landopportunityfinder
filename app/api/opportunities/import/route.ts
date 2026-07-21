@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { parse } from "csv-parse/sync";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { explainScore, scoreOpportunity } from "@/lib/scoring";
+import { authorizeIngestion } from "@/lib/atlas/ingestion/auth";
 export async function POST(req:Request){
+  const authorization=authorizeIngestion(req);if(!authorization.ok)return NextResponse.json({error:authorization.error},{status:authorization.status});
   const supabase=getSupabaseAdmin();if(!supabase)return NextResponse.json({error:"Supabase is not configured"},{status:503});
   const form=await req.formData();const file=form.get("file");if(!(file instanceof File))return NextResponse.json({error:"CSV file required"},{status:400});
   const records=parse(await file.text(),{columns:true,skip_empty_lines:true,trim:true});
