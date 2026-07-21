@@ -10,7 +10,10 @@ export type Opportunity = {
   source_type: string;
   source_reference?: string | null;
   ownership_status: string | null;
+  proprietor_name?: string | null;
+  company_number?: string | null;
   company_status: string | null;
+  title_number?: string | null;
   vacancy_signal: number;
   planning_signal: number;
   access_signal: number;

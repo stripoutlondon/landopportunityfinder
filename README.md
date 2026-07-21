@@ -2,7 +2,16 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.4 capabilities
+## Release 0.5 capabilities
+
+- Atlas analyst queue with planning-status-check, direct-planning-link, title-gap and evidence-readiness filters
+- Planning-age analysis that flags old permissions requiring an implementation or lapse check
+- Planning-reference extraction from official source notes
+- Evidence-readiness scoring, explicit evidence gaps and ordered human next actions
+- Official site-plan and planning-history evidence persisted on subsequent Hertsmere synchronisations
+- Protected Companies House company-profile enrichment for future corporate-title leads
+
+Release 0.4 also provides:
 
 - Interactive Hertsmere opportunity map with official OpenStreetMap context
 - Developer acquisition filters for patch, planning position, ownership and dwelling capacity
@@ -52,8 +61,19 @@ Set these variables in Vercel:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ATLAS_INGESTION_SECRET`
+- `COMPANIES_HOUSE_API_KEY` (required only for protected corporate enrichment)
 
 The service-role and ingestion keys are server-only. Never expose them in browser code, GitHub, screenshots, logs or chat.
+
+## Companies House enrichment
+
+When an Atlas lead has a verified `company_number`, send an authorised `POST` request to:
+
+```text
+/api/enrichment/companies-house/<company-number>
+```
+
+with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas fetches the official company profile using the server-only Companies House key, updates the matched lead and stores traceable evidence. It does not search for or infer a private owner.
 
 ## Official Hertsmere brownfield sync
 
