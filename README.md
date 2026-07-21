@@ -31,10 +31,11 @@ For a new Supabase project, run only:
 supabase/000_atlas_foundation.sql
 ```
 
-For an existing Release 0.2 database, run:
+For an existing Release 0.2 database, run these in order:
 
 ```text
 supabase/migrations/003_hertsmere_intelligence.sql
+supabase/migrations/004_evidence_upsert_compatibility.sql
 ```
 
 Set these variables in Vercel:
