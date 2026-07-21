@@ -124,6 +124,57 @@
   color: var(--amber);
 }
 
+.constraint-state {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.constraint-state.pending { background: #f1eee7; color: #685f50; }
+.constraint-state.clear { background: #dff4e8; color: #17613d; }
+.constraint-state.flagged { background: #fee7dd; color: #9b3d1f; }
+
+.constraint-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.constraint-list article {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fcfbf8;
+  display: grid;
+  gap: 5px;
+}
+
+.constraint-list article span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.constraint-list article small { color: var(--muted); }
+
+.constraint-warning {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #fff7df;
+  border-left: 3px solid #d59b25;
+  color: #5d4a20;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 @media (max-width: 1080px) {
   .sprint3-filters {
     grid-template-columns: repeat(3, 1fr);

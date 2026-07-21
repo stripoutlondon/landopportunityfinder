@@ -38,10 +38,16 @@
 - Ordered verification actions
 - Protected Companies House profile connector
 
-## Next - Verified acquisition intelligence
+## Release 0.6 - Ownership and constraints intelligence
 
-- HMLR corporate ownership and title matching
-- Constraints and access overlays
+- Planning Data point-based constraints screen
+- Evidence-backed constraint status and analyst filters
+- Licensed HMLR corporate ownership matching
+- Ambiguous ownership-match protection
+
+## Next - Investment committee intelligence
+
+- Highways and lawful access evidence
 - Planning decision and document ingestion
 - Human-reviewed high-priority shortlist
 - Investment committee brief and outcome tracking
