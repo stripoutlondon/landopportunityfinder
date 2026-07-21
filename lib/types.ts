@@ -8,6 +8,7 @@ export type Opportunity = {
   longitude: number | null;
   area_sqm: number | null;
   source_type: string;
+  source_reference?: string | null;
   ownership_status: string | null;
   company_status: string | null;
   vacancy_signal: number;
@@ -20,5 +21,6 @@ export type Opportunity = {
   acquisition_route: string | null;
   rationale: string | null;
   status: string;
+  raw_evidence?: Record<string, unknown> | null;
   created_at: string;
 };

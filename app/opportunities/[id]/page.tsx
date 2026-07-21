@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { demoOpportunities } from "@/lib/demo";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { Opportunity } from "@/lib/types";
+import { deriveOpportunityIntelligence } from "@/lib/atlas/opportunity-intelligence";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
     isDemo = Boolean(item);
   }
   if (!item) notFound();
+  const intelligence = deriveOpportunityIntelligence(item);
 
   const mapsUrl = item.latitude !== null && item.longitude !== null
     ? `https://www.openstreetmap.org/?mlat=${item.latitude}&mlon=${item.longitude}#map=17/${item.latitude}/${item.longitude}`
@@ -39,7 +41,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   return <main className="shell">
     <Link className="tiny" href="/">← Back to opportunities</Link>
     <div className="panel investigation-header">
-      <div><span className="score">{item.opportunity_score}</span>{isDemo && <span className="badge">Demonstration</span>}</div>
+      <div><span className="score">{intelligence.researchPriority}</span><div className="tiny">Research priority</div>{isDemo && <span className="badge">Demonstration</span>}</div>
       <div><h1>{item.name}</h1><p className="lead">{item.rationale}</p><p className="tiny">{item.address}{item.postcode ? ` · ${item.postcode}` : ""}</p></div>
     </div>
     <div className="grid2 investigation-grid">
@@ -53,6 +55,9 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
       </div></section>
       <section className="panel"><h2>Recommended acquisition route</h2><p>{item.acquisition_route || "Further research required."}</p>{mapsUrl && <a className="button-link" href={mapsUrl} target="_blank" rel="noreferrer">View location on map ↗</a>}</section>
     </div>
+    <section className="panel intelligence-strip"><div><span>Indicative capacity</span><strong>{intelligence.capacityLabel}</strong></div><div><span>Planning position</span><strong>{intelligence.planningPosition}</strong></div><div><span>Ownership route</span><strong>{intelligence.ownershipGroup}</strong></div><div><span>Patch</span><strong>{intelligence.location}</strong></div></section>
+    {intelligence.priorityReasons.length > 0 && <section className="panel priority-reasons"><h2>Why Atlas prioritised it</h2><div className="signals">{intelligence.priorityReasons.map((reason) => <span className="signal" key={reason}>{reason}</span>)}</div></section>}
+    {(intelligence.notes || intelligence.sitePlanUrl || intelligence.planningHistoryUrl) && <section className="panel source-intelligence"><h2>Source intelligence</h2>{intelligence.notes && <p>{intelligence.notes}</p>}<div className="toolbar">{intelligence.sitePlanUrl && <a className="button-link" href={intelligence.sitePlanUrl} target="_blank" rel="noreferrer">Open official site plan ↗</a>}{intelligence.planningHistoryUrl && <a className="button-link" href={intelligence.planningHistoryUrl} target="_blank" rel="noreferrer">Open planning history ↗</a>}</div></section>}
     <div className="grid2 investigation-grid">
       <section className="panel"><h2>Evidence timeline</h2>{evidence.length ? <ol className="timeline">{evidence.map((entry) => <li key={entry.id}><div className="timeline-heading"><strong>{entry.title}</strong><span>{entry.confidence}% confidence</span></div><p>{entry.summary}</p><div className="tiny">{entry.evidence_type.replaceAll("_", " ")} · {new Date(entry.observed_at ?? entry.created_at).toLocaleDateString("en-GB")}{entry.source_url && <> · <a href={entry.source_url} target="_blank" rel="noreferrer">Open source ↗</a></>}</div></li>)}</ol> : <p className="empty">No persisted evidence is available for this demonstration record.</p>}</section>
       <section className="panel"><h2>Human verification</h2>{tasks.length ? <ul className="checklist">{tasks.map((task) => <li key={task.id}><span className={`task-state ${task.status}`}>{task.status === "completed" ? "✓" : "○"}</span><div><strong>{task.title}</strong><p>{task.instructions}</p><span className="tiny">{task.priority} priority</span></div></li>)}</ul> : <p className="empty">Verification tasks will be created when a real opportunity is ingested.</p>}</section>
