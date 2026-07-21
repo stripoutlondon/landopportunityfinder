@@ -54,12 +54,27 @@ export async function ingestRecords(params: { supabase: SupabaseClient; sourceSl
     }
 
     const reviewOpportunities = (opportunities ?? []).filter((row) => Number(row.opportunity_score) >= 45);
-    const investigationRows = reviewOpportunities.map((row) => ({ opportunity_id: row.id, status: "open", priority: Number(row.opportunity_score) >= 70 ? "high" : "normal", thesis: row.rationale }));
-    const { data: investigations, error: investigationError } = investigationRows.length
-      ? await supabase.from("investigations").upsert(investigationRows, { onConflict: "opportunity_id" }).select("id,opportunity_id")
+    const reviewIds = reviewOpportunities.map((row) => row.id as string);
+    const { data: existingInvestigations, error: existingInvestigationError } = reviewIds.length
+      ? await supabase.from("investigations").select("id,opportunity_id").in("opportunity_id", reviewIds)
+      : { data: [], error: null };
+    if (existingInvestigationError) throw new Error(existingInvestigationError.message);
+    const existingInvestigationIds = new Set((existingInvestigations ?? []).map((row) => row.opportunity_id as string));
+    const investigationRows = reviewOpportunities
+      .filter((row) => !existingInvestigationIds.has(row.id as string))
+      .map((row) => ({ opportunity_id: row.id, status: "open", priority: Number(row.opportunity_score) >= 70 ? "high" : "normal", thesis: row.rationale }));
+    const { data: insertedInvestigations, error: investigationError } = investigationRows.length
+      ? await supabase.from("investigations").insert(investigationRows).select("id,opportunity_id")
       : { data: [], error: null };
     if (investigationError) throw new Error(investigationError.message);
-    const verificationRows = (investigations ?? []).flatMap((investigation) => [{
+    const investigations = [...(existingInvestigations ?? []), ...(insertedInvestigations ?? [])];
+    const investigationIds = investigations.map((row) => row.opportunity_id as string);
+    const { data: existingTasks, error: existingTaskError } = investigationIds.length
+      ? await supabase.from("verification_tasks").select("opportunity_id,task_type").in("opportunity_id", investigationIds)
+      : { data: [], error: null };
+    if (existingTaskError) throw new Error(existingTaskError.message);
+    const existingTaskKeys = new Set((existingTasks ?? []).map((row) => `${row.opportunity_id}:${row.task_type}`));
+    const verificationRows = investigations.flatMap((investigation) => [{
       opportunity_id: investigation.opportunity_id,
       investigation_id: investigation.id,
       task_type: "ownership_check",
@@ -73,9 +88,9 @@ export async function ingestRecords(params: { supabase: SupabaseClient; sourceSl
       title: "Verify current planning position",
       instructions: "Check the council planning portal and supporting documents for the latest status and constraints.",
       priority: "normal",
-    }]);
+    }]).filter((row) => !existingTaskKeys.has(`${row.opportunity_id}:${row.task_type}`));
     if (verificationRows.length) {
-      const { error: taskError } = await supabase.from("verification_tasks").upsert(verificationRows, { onConflict: "opportunity_id,task_type" });
+      const { error: taskError } = await supabase.from("verification_tasks").insert(verificationRows);
       if (taskError) throw new Error(taskError.message);
     }
 
