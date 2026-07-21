@@ -2,7 +2,15 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.3 capabilities
+## Release 0.4 capabilities
+
+- Interactive Hertsmere opportunity map with official OpenStreetMap context
+- Developer acquisition filters for patch, planning position, ownership and dwelling capacity
+- Explainable research-priority ranking combining source score, capacity, planning position, underuse and ownership classification
+- Derived brownfield intelligence for stated capacity, planning position, source links, location and likely site type
+- Mobile-ready opportunity explorer and upgraded investigation pages
+
+Release 0.3 also provides:
 
 - Direct official Planning Data brownfield synchronisation for Hertsmere
 - National brownfield-field and WKT coordinate normalisation
