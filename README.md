@@ -2,15 +2,16 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.2 capabilities
+## Release 0.3 capabilities
 
-- Ranked opportunity dashboard and investigation pages
-- Transparent opportunity scoring
-- Source registry for the Hertsmere pilot
-- Tolerant planning and brownfield CSV normalisers
-- Repeat-safe Supabase ingestion using stable external and evidence keys
-- Ingestion-run audit trail with rejection reasons
-- One fresh-database Supabase setup file
+- Direct official Planning Data brownfield synchronisation for Hertsmere
+- National brownfield-field and WKT coordinate normalisation
+- Ranked opportunity dashboard and evidence-led investigation workspace
+- Evidence timeline and human verification checklist
+- Repeat-safe Supabase ingestion with accurate created/updated counts
+- Automatic investigations and ownership/planning verification tasks
+- Protected CSV and official-data ingestion endpoints
+- Transparent opportunity scoring and source registry
 
 ## Local development
 
@@ -30,24 +31,39 @@ For a new Supabase project, run only:
 supabase/000_atlas_foundation.sql
 ```
 
-The older files under `supabase/migrations` are retained as historical migrations for databases that already used Release 0.1. Do not run them after the fresh-database setup file.
+For an existing Release 0.2 database, run:
+
+```text
+supabase/migrations/003_hertsmere_intelligence.sql
+```
 
 Set these variables in Vercel:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `ATLAS_INGESTION_SECRET`
 
-The service-role key is server-only and must never be exposed in browser code or committed.
+The service-role and ingestion keys are server-only. Never expose them in browser code, GitHub, screenshots, logs or chat.
 
-## Hertsmere ingestion API
+## Official Hertsmere brownfield sync
 
-Send `multipart/form-data` to `POST /api/ingestion/hertsmere` with:
+Send an authorised `POST` request to:
+
+```text
+/api/ingestion/hertsmere/sync
+```
+
+with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas downloads Hertsmere brownfield entities from the official [Planning Data brownfield dataset](https://www.planning.data.gov.uk/dataset/brownfield-land), normalises them, stores evidence, scores each lead and creates verification work.
+
+## Hertsmere CSV ingestion
+
+Send authorised `multipart/form-data` to `POST /api/ingestion/hertsmere` with:
 
 - `source`: `planning` or `brownfield`
 - `file`: the source CSV
 
-The normalisers accept common variations of Hertsmere and national brownfield-register headings. Rows without a traceable source reference or address are rejected and counted in the ingestion report. Re-importing the same source record updates the existing opportunity and evidence rather than creating duplicates.
+Rows without a traceable source reference or address are rejected and counted. Re-importing a source record updates the existing opportunity and evidence.
 
 ## Legal positioning
 

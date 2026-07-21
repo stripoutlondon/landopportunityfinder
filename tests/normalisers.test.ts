@@ -3,6 +3,33 @@ import test from "node:test";
 import { HertsmerePlanningNormalizer } from "../lib/atlas/ingestion/planning";
 import { HertsmereBrownfieldNormalizer } from "../lib/atlas/ingestion/brownfield";
 import { normaliseRecords } from "../lib/atlas/ingestion/service";
+import { parseWktPoint } from "../lib/atlas/ingestion/fields";
+
+test("parses Planning Data WKT points in longitude-latitude order", () => {
+  assert.deepEqual(parseWktPoint("POINT (-0.30712 51.68724)"), { longitude: -0.30712, latitude: 51.68724 });
+  assert.equal(parseWktPoint("POINT (514000 196000)"), null);
+});
+
+test("brownfield normaliser accepts official Planning Data field names", () => {
+  const result = new HertsmereBrownfieldNormalizer().normalize({ entity: 1727370, reference: "BR031", "site-address": "18 Watford Road, Radlett", "planning-permission-status": "not permissioned", "minimum-net-dwellings": 5, "maximum-net-dwellings": 8, hectares: 0.12, point: "POINT (-0.321 51.684)", "ownership-status": "not owned by a public authority" });
+  assert.equal(result.accepted, true);
+  if (!result.accepted) return;
+  assert.equal(result.lead.latitude, 51.684);
+  assert.equal(result.lead.longitude, -0.321);
+  assert.equal(result.lead.areaSqm, 1200);
+  assert.equal(result.lead.postcode, null);
+  assert.equal(result.lead.evidence.length, 2);
+  assert.ok(result.lead.planningSignal >= 80);
+  assert.match(result.lead.evidence[0].sourceUrl ?? "", /1727370$/);
+});
+
+test("brownfield normaliser extracts postcodes and rejects ended register entries", () => {
+  const current = new HertsmereBrownfieldNormalizer().normalize({ reference: "BR001", "site-address": "The Directors Arms, Borehamwood, WD6 2HS", point: "POINT (-0.26 51.65)" });
+  assert.equal(current.accepted, true);
+  if (current.accepted) assert.equal(current.lead.postcode, "WD6 2HS");
+  const historical = new HertsmereBrownfieldNormalizer().normalize({ reference: "BR002", "site-address": "Former site, Borehamwood", "end-date": "2022-05-18" });
+  assert.deepEqual(historical, { accepted: false, reason: "historical brownfield entry" });
+});
 
 test("planning normaliser recognises Hertsmere aliases and refused applications", () => {
   const result = new HertsmerePlanningNormalizer().normalize({ "Application Number": "24/1234/FUL", "Site Address": "1 High Street, Borehamwood", Proposal: "Demolition and 8 flats", Decision: "Refused", "Decision Date": "2025-03-01" });

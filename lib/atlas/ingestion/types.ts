@@ -54,6 +54,10 @@ export type IngestionSummary = {
   accepted: number;
   rejected: number;
   opportunitiesUpserted: number;
+  opportunitiesCreated: number;
+  opportunitiesUpdated: number;
   evidenceUpserted: number;
+  investigationsUpserted: number;
+  verificationTasksUpserted: number;
   rejectionReasons: Record<string, number>;
 };

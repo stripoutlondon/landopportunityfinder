@@ -137,6 +137,9 @@ create table if not exists public.investigations (
   updated_at timestamptz not null default now()
 );
 
+create unique index if not exists investigations_opportunity_unique
+  on public.investigations(opportunity_id);
+
 create table if not exists public.verification_tasks (
   id uuid primary key default gen_random_uuid(),
   opportunity_id uuid references public.opportunities(id) on delete cascade,
@@ -151,6 +154,9 @@ create table if not exists public.verification_tasks (
   created_at timestamptz not null default now(),
   completed_at timestamptz
 );
+
+create unique index if not exists verification_tasks_opportunity_type_unique
+  on public.verification_tasks(opportunity_id, task_type);
 
 create table if not exists public.opportunity_outcomes (
   id uuid primary key default gen_random_uuid(),
@@ -176,6 +182,18 @@ cross join (values
 ) as source(slug, name, category, authority, refresh_cadence, trust_score)
 where t.slug = 'hertsmere'
 on conflict (slug) do update set name = excluded.name, authority = excluded.authority, refresh_cadence = excluded.refresh_cadence;
+
+update public.data_sources
+set source_url = 'https://www.planning.data.gov.uk/dataset/brownfield-land',
+    licence = 'Open Government Licence v3.0',
+    configuration = jsonb_build_object('provider', 'Planning Data', 'dataset', 'brownfield-land', 'geometry_entity', '626169', 'geometry_relation', 'within')
+where slug = 'hertsmere-brownfield';
+
+update public.data_sources
+set source_url = 'https://www.hertsmere.gov.uk/planning-building-control/planning-applications/weekly-planning-application-lists',
+    licence = 'Council website terms apply',
+    configuration = jsonb_build_object('mode', 'authorised_csv_upload')
+where slug = 'hertsmere-planning';
 
 alter table public.territories enable row level security;
 alter table public.data_sources enable row level security;
