@@ -76,3 +76,34 @@ test("creates explicit evidence gaps and human next actions", () => {
   assert.ok(result.nextActions.some((action) => action.type === "title" && action.priority === "high"));
   assert.ok(result.nextActions.some((action) => action.type === "planning"));
 });
+
+test("distinguishes a completed clear constraint screen from missing evidence", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    constraint_penalty: 0,
+    raw_evidence: {
+      "planning-permission-status": "not permissioned",
+      atlas_constraints: { checkedAt: "2026-07-21T12:00:00Z", constraints: [], status: "clear", disclaimer: "Indicative only" },
+    },
+  }));
+  assert.equal(result.constraintsChecked, true);
+  assert.equal(result.constraintStatus, "clear");
+  assert.ok(!result.evidenceGaps.includes("constraint screening"));
+  assert.ok(!result.nextActions.some((action) => action.title === "Run constraints and access screening"));
+});
+
+test("surfaces flagged constraints and asks for authoritative verification", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    constraint_penalty: 30,
+    raw_evidence: {
+      "planning-permission-status": "not permissioned",
+      atlas_constraints: {
+        checkedAt: "2026-07-21T12:00:00Z",
+        constraints: [{ dataset: "green-belt", entity: "626169", name: "London Area Green Belt", reference: null }],
+        status: "flagged",
+      },
+    },
+  }));
+  assert.equal(result.constraintStatus, "flagged");
+  assert.equal(result.constraints[0].dataset, "green-belt");
+  assert.ok(result.nextActions.some((action) => action.title === "Verify flagged constraints" && action.priority === "high"));
+});

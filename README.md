@@ -2,7 +2,15 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.5 capabilities
+## Release 0.6 capabilities
+
+- Protected Planning Data screening for Green Belt, flood, heritage, trees and environmental designations
+- Explicit pending, clear and flagged constraint states without treating missing results as proof of no constraints
+- Constraint evidence, penalties and analyst filters integrated into every Hertsmere case file
+- Licensed HM Land Registry corporate ownership matching using exact postcode plus explainable address similarity
+- Ambiguity protection that holds competing title matches for human review
+
+Release 0.5 also provides:
 
 - Atlas analyst queue with planning-status-check, direct-planning-link, title-gap and evidence-readiness filters
 - Planning-age analysis that flags old permissions requiring an implementation or lapse check
@@ -74,6 +82,20 @@ When an Atlas lead has a verified `company_number`, send an authorised `POST` re
 ```
 
 with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas fetches the official company profile using the server-only Companies House key, updates the matched lead and stores traceable evidence. It does not search for or infer a private owner.
+
+## Indicative Hertsmere constraints sync
+
+Send an authorised `POST` request to:
+
+```text
+/api/enrichment/constraints/hertsmere
+```
+
+Atlas checks each geocoded Hertsmere lead against official Planning Data point-query datasets, persists the returned evidence and recalculates the constraint penalty. The result is an initial screen only: dataset coverage varies and an empty result is not proof that a site has no constraints.
+
+## Licensed HMLR corporate ownership matching
+
+Send authorised `multipart/form-data` to `POST /api/enrichment/hmlr/corporate` with a `file` containing the account holder's licensed UK corporate ownership CSV. Atlas only writes a match where the postcode is exact and the property-address similarity is strong and unambiguous. Every result still requires a current official title register and plan.
 
 ## Official Hertsmere brownfield sync
 
