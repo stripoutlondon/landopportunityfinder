@@ -10,43 +10,63 @@ export type ScoreInput = {
   area_sqm?: number | null;
 };
 
-const clamp = (n: number, min = 0, max = 100) => Math.ma…2680 tokens truncated…_date", "decision date", "status_date"]);
-    const lowerDecision = decision.toLowerCase();
-    const lowerProposal = proposal.toLowerCase();
-    const decisionSignal = opportunityDecisions.some((term) => lowerDecision.includes(term));
-    const developmentSignal = developmentTerms.some((term) => lowerProposal.includes(term));
-    const planningSignal = Math.min(100, 35 + (decisionSignal ? 30 : 0) + (developmentSignal ? 20 : 0));
-    const latitude = plausibleCoordinate(readNumber(record, ["latitude", "lat"]), "latitude");
-    const longitude = plausibleCoordinate(readNumber(record, ["longitude", "lng", "lon"]), "longitude");
-    const postcode = normalisePostcode(readField(record, ["postcode", "post_code"]));
-    const externalKey = `hertsmere-planning:${stableKey(reference)}`;
+const clamp = (value: number, min = 0, max = 100) =>
+  Math.max(min, Math.min(max, value));
 
-    return { accepted: true, lead: {
-      externalKey,
-      name: address,
-      address,
-      locality: readField(record, ["parish", "ward", "locality", "town"]),
-      postcode,
-      latitude,
-      longitude,
-      areaSqm: readNumber(record, ["site_area_sqm", "area_sqm", "site area"]),
-      sourceType: "planning",
-      sourceReference: reference,
-      vacancySignal: 0,
-      planningSignal,
-      accessSignal: 0,
-      assemblySignal: 0,
-      constraintPenalty: 0,
-      evidenceConfidence: decisionDate ? 85 : 70,
-      acquisitionRoute: "Review the application documents, title and current site use before approaching the owner.",
-      rationale: `${decision} planning record for: ${proposal}`,
-      status: decisionSignal ? "review" : "lead",
-      rawEvidence: record,
-      evidence: [{
-        evidenceKey: `${externalKey}:decision`, evidenceType: "planning_application", title: `Planning ${reference}`,
-        summary: `${decision}: ${proposal}`, sourceReference: reference, observedAt: decisionDate,
-        confidence: decisionDate ? 90 : 75, payload: record,
-      }],
-    }};
+const signal = (value: number | undefined) => clamp(value ?? 0);
+
+export function scoreOpportunity(input: ScoreInput): number {
+  const companyStatus = input.company_status?.trim().toLowerCase() ?? "";
+  const ownershipStatus = input.ownership_status?.trim().toLowerCase() ?? "";
+
+  const dissolvedCompanyBonus = companyStatus.includes("dissolved") ? 12 : 0;
+  const ownershipUncertaintyBonus =
+    ownershipStatus.includes("unclear") ||
+    ownershipStatus.includes("unknown") ||
+    ownershipStatus.includes("unregistered")
+      ? 8
+      : 0;
+  const viableScaleBonus = (input.area_sqm ?? 0) >= 500 ? 4 : 0;
+
+  const weightedSignals =
+    signal(input.planning_signal) * 0.25 +
+    signal(input.vacancy_signal) * 0.2 +
+    signal(input.access_signal) * 0.15 +
+    signal(input.assembly_signal) * 0.15 +
+    signal(input.evidence_confidence) * 0.15;
+  const riskDeduction = signal(input.constraint_penalty) * 0.25;
+
+  return Math.round(
+    clamp(
+      weightedSignals +
+        dissolvedCompanyBonus +
+        ownershipUncertaintyBonus +
+        viableScaleBonus -
+        riskDeduction,
+    ),
+  );
+}
+
+export function explainScore(input: ScoreInput, score = scoreOpportunity(input)): string {
+  const strengths: string[] = [];
+  const cautions: string[] = [];
+
+  if (signal(input.planning_signal) >= 60) strengths.push("planning potential");
+  if (signal(input.vacancy_signal) >= 60) strengths.push("vacancy or underuse");
+  if (signal(input.access_signal) >= 60) strengths.push("site access");
+  if (signal(input.assembly_signal) >= 60) strengths.push("assembly potential");
+  if (input.company_status?.toLowerCase().includes("dissolved")) {
+    strengths.push("dissolved-company ownership signal");
   }
+  if (signal(input.constraint_penalty) >= 40) cautions.push("material constraints");
+  if (signal(input.evidence_confidence) < 50) cautions.push("limited evidence confidence");
+
+  const reason = strengths.length
+    ? `Strongest signals: ${strengths.join(", ")}.`
+    : "No single strong opportunity signal has yet been verified.";
+  const caution = cautions.length
+    ? ` Further investigation is required because of ${cautions.join(" and ")}.`
+    : " Evidence and title checks are still required before acquisition decisions.";
+
+  return `Atlas score ${score}/100. ${reason}${caution}`;
 }
