@@ -11,6 +11,22 @@
 
 Do not put the key in GitHub, browser code, screenshots, logs or chat.
 
+## HM Land Registry dataset API
+
+1. Sign in to Use land and property data.
+2. Accept the licences for every dataset Atlas will access.
+3. Save the account API key in Vercel as `HMLR_DATA_API_KEY` for Production and Preview.
+4. Never use a `NEXT_PUBLIC_` prefix or expose the key in browser code.
+
+The API key provides dataset metadata and secure download links. It does not
+make a national 1.5 GB uncompressed CCOD file suitable for a Vercel request.
+Use `scripts/prepare-hmlr-data.ps1` to create a district-only CSV locally and
+`scripts/import-hmlr-ccod.ps1` to send the smaller licensed subset to Atlas.
+
+The preparation step also validates and extracts the Hertsmere INSPIRE GML,
+records its polygon count, coordinate reference system and SHA-256 digest, and
+keeps all generated licensed files under the Git-ignored `work/` directory.
+
 ## HM Land Registry bulk data
 
 1. Create an account at [Use land and property data](https://use-land-property-data.service.gov.uk/).
@@ -40,4 +56,3 @@ Online copies are suitable for research but are not official proof of ownership.
 - Companies House company status without a matched title
 - an empty online search result
 - physical occupation or an abandoned appearance
-
