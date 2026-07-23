@@ -63,7 +63,7 @@ type CompaniesHouseChargesResponse = {
     created_on?: string;
     satisfied_on?: string;
     persons_entitled?: Array<{ name?: string }>;
-    classification?: Array<{ description?: string }>;
+    classification?: Array<{ description?: string }> | { description?: string };
   }>;
 };
 
@@ -143,7 +143,11 @@ export async function fetchCompanyInsolvencyIntelligence(
     personsEntitled: (item.persons_entitled ?? [])
       .map((person) => person.name?.trim())
       .filter((name): name is string => Boolean(name)),
-    classification: (item.classification ?? [])
+    classification: (Array.isArray(item.classification)
+      ? item.classification
+      : item.classification
+        ? [item.classification]
+        : [])
       .map((entry) => entry.description?.trim())
       .filter((description): description is string => Boolean(description)),
   }));
