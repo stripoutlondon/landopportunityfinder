@@ -80,6 +80,20 @@ function buildRisks(opportunity: Opportunity, intelligence: OpportunityIntellige
       title: "Insolvency acquisition route",
       detail: "Authority to sell, secured creditors and the appointed insolvency practitioner must be verified.",
     });
+    if (intelligence.insolvency?.outstandingCharges.length) {
+      risks.push({
+        severity: "moderate",
+        title: "Outstanding company charges",
+        detail: `${intelligence.insolvency.outstandingCharges.length} outstanding or part-satisfied company charge${intelligence.insolvency.outstandingCharges.length === 1 ? "" : "s"} must be reconciled with the current property title.`,
+      });
+    }
+    if (intelligence.insolvency && !intelligence.insolvency.activePractitioners.length) {
+      risks.push({
+        severity: "moderate",
+        title: "No acting practitioner returned",
+        detail: "The public insolvency record did not identify a currently acting practitioner; the latest filing and Gazette position requires review.",
+      });
+    }
   }
   if (intelligence.corporateSignal === "dissolved") {
     risks.push({
@@ -165,6 +179,7 @@ export function assessOpportunityVerification(
   if (ownershipKnown) strengths.push("Registered title and proprietor have been matched");
   if (companyVerified) strengths.push("Corporate proprietor status has been checked");
   if (intelligence.corporateSignal === "insolvency") strengths.push("Corporate proprietor is in formal insolvency, creating a time-sensitive acquisition signal");
+  if (intelligence.insolvency?.cases.length) strengths.push("Detailed Companies House insolvency cases and practitioners have been captured");
   if (intelligence.corporateSignal === "dissolved") strengths.push("Dissolved-company ownership creates a specialist acquisition-route signal");
   if (intelligence.siteTypes.some((type) => ["Vacant or underused", "Car park", "Garage or automotive", "Commercial"].includes(type))) {
     strengths.push("Physical-use description suggests redevelopment or intensification potential");
@@ -174,7 +189,9 @@ export function assessOpportunityVerification(
   const nextBestAction = intelligence.corporateSignal === "unmatched"
     ? "Correct the company identifier against the current official title register."
     : intelligence.corporateSignal === "insolvency"
-      ? "Identify the appointed insolvency practitioner and confirm authority to deal with the property."
+      ? intelligence.insolvency?.activePractitioners.length
+        ? `Confirm that ${[...new Set(intelligence.insolvency.activePractitioners.map((item) => item.name))].join(", ")} has authority to deal with this property.`
+        : "Identify the currently authorised insolvency practitioner and confirm authority to deal with the property."
       : intelligence.corporateSignal === "dissolved"
         ? "Confirm the title and establish the applicable bona vacantia or restoration route."
         : !ownershipKnown

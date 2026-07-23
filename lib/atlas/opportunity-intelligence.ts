@@ -3,6 +3,7 @@ import {
   classifyCompanyStatus,
   type CorporateStatusSignal,
 } from "@/lib/atlas/enrichment/companies-house";
+import type { CompanyInsolvencyIntelligence } from "@/lib/atlas/enrichment/company-insolvency";
 
 export type PlanningGroup = "unpermissioned" | "permissioned" | "other";
 export type OwnershipGroup = "public" | "private" | "mixed" | "unknown";
@@ -23,6 +24,7 @@ export type OpportunityIntelligence = {
   ownershipGroup: OwnershipGroup;
   corporateSignal: CorporateStatusSignal;
   corporateStatusLabel: string;
+  insolvency: CompanyInsolvencyIntelligence | null;
   location: string;
   siteTypes: string[];
   sitePlanUrl: string | null;
@@ -180,6 +182,17 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     : corporateSignal === "active" ? "Active company"
     : corporateSignal === "other" ? `Company status: ${opportunity.company_status}`
     : "Company status pending";
+  const insolvencyRoot = raw?.atlas_insolvency && typeof raw.atlas_insolvency === "object"
+    ? raw.atlas_insolvency as unknown as CompanyInsolvencyIntelligence
+    : null;
+  const insolvency = insolvencyRoot
+    && typeof insolvencyRoot.companyNumber === "string"
+    && typeof insolvencyRoot.observedAt === "string"
+    && Array.isArray(insolvencyRoot.cases)
+    && Array.isArray(insolvencyRoot.activePractitioners)
+    && Array.isArray(insolvencyRoot.outstandingCharges)
+    ? insolvencyRoot
+    : null;
   const notes = rawValue(raw, ["notes"]);
   const combinedText = `${opportunity.name} ${opportunity.address ?? ""} ${opportunity.locality ?? ""} ${notes ?? ""}`.toLowerCase();
   const siteTypes = classifySiteTypes(combinedText);
@@ -230,6 +243,10 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
   if (minimumDwellings === null && maximumDwellings === null) evidenceGaps.push("stated development capacity");
   if (ownershipGroup === "unknown" || ownershipGroup === "mixed") evidenceGaps.push("clear ownership route");
   if (opportunity.company_number && corporateSignal === "unmatched") evidenceGaps.push("verified corporate identifier");
+  if (corporateSignal === "insolvency" && !insolvency) evidenceGaps.push("detailed insolvency case record");
+  if (corporateSignal === "insolvency" && insolvency && !insolvency.activePractitioners.length) {
+    evidenceGaps.push("current insolvency practitioner authority");
+  }
   if (!accessVerified) evidenceGaps.push("highway and access evidence");
   if (!constraintsChecked) evidenceGaps.push("constraint screening");
   if (!inspireScreen?.checkedAt) evidenceGaps.push("indicative Land Registry parcel screen");
@@ -238,7 +255,15 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
   if (stalePlanning || (!planningVerified && (planningGroup === "unpermissioned" || !planningHistoryUrl))) nextActions.push({ type: "planning", title: "Verify the live planning position", detail: stalePlanning ? "Check whether the recorded permission was implemented, superseded or has lapsed." : "Review Hertsmere's planning portal, decision notice and supporting documents.", priority: "high" });
   if (minimumDwellings === null && maximumDwellings === null) nextActions.push({ type: "capacity", title: "Establish indicative capacity", detail: "Review the site plan, policy context and nearby schemes before relying on a dwelling estimate.", priority: "normal" });
   if (opportunity.company_number && !opportunity.company_status) nextActions.push({ type: "company", title: "Enrich the corporate proprietor", detail: "Check the company's live status, insolvency indicators and filing position through Companies House.", priority: "high" });
-  if (corporateSignal === "insolvency") nextActions.push({ type: "company", title: "Identify the appointed insolvency practitioner", detail: "Review the Companies House filing history and Gazette notices, then verify who has authority to deal with the property.", priority: "high" });
+  if (corporateSignal === "insolvency" && !insolvency) nextActions.push({ type: "company", title: "Enrich the insolvency case", detail: "Retrieve the public Companies House insolvency record, acting practitioners and company charges before approaching any party.", priority: "high" });
+  if (corporateSignal === "insolvency" && insolvency) nextActions.push({
+    type: "company",
+    title: "Confirm insolvency practitioner authority",
+    detail: insolvency.activePractitioners.length
+      ? `Verify that ${[...new Set(insolvency.activePractitioners.map((item) => item.name))].join(", ")} has authority to deal with this specific property.`
+      : "No currently acting practitioner was returned. Review the latest filings and Gazette notices to identify the authorised office-holder.",
+    priority: "high",
+  });
   if (corporateSignal === "dissolved") nextActions.push({ type: "company", title: "Verify the bona vacantia route", detail: "Confirm the title, dissolution date and whether the property vested in the Crown or another relevant authority before making contact.", priority: "high" });
   if (corporateSignal === "unmatched") nextActions.push({ type: "company", title: "Correct the corporate identifier", detail: "Compare the proprietor name and company number with the current official title register before relying on Companies House status.", priority: "high" });
   if (!constraintsChecked) nextActions.push({ type: "constraints", title: "Run constraints and access screening", detail: "Check Green Belt, flood, heritage, trees, highways and lawful access before progressing the lead.", priority: "normal" });
@@ -254,6 +279,7 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     ownershipGroup,
     corporateSignal,
     corporateStatusLabel,
+    insolvency,
     location: classifyLocation(combinedText),
     siteTypes,
     sitePlanUrl: rawValue(raw, ["site-plan-url", "site plan url"]),

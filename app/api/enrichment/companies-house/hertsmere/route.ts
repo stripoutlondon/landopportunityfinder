@@ -5,10 +5,17 @@ import {
   companyProfileEvidence,
   findCompanyProfileByExactName,
   fetchCompanyProfile,
+  isInsolvencyCompanyStatus,
   isDissolvedCompanyStatus,
   normaliseCompanyNumber,
   type CompanyOpportunity,
 } from "@/lib/atlas/enrichment/companies-house";
+import {
+  companyChargesEvidence,
+  companyInsolvencyEvidence,
+  fetchCompanyInsolvencyIntelligence,
+  insolvencyVerificationTasks,
+} from "@/lib/atlas/enrichment/company-insolvency";
 import { authorizeIngestion } from "@/lib/atlas/ingestion/auth";
 import { scoreOpportunity, type ScoreInput } from "@/lib/scoring";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -17,6 +24,7 @@ export const maxDuration = 60;
 
 type EnrichmentOpportunity = CompanyOpportunity & ScoreInput & {
   proprietor_name: string | null;
+  raw_evidence: Record<string, unknown> | null;
 };
 
 async function mapWithConcurrency<T, R>(
@@ -53,7 +61,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from("opportunities")
-      .select("id,company_number,proprietor_name,ownership_status,vacancy_signal,planning_signal,access_signal,assembly_signal,constraint_penalty,evidence_confidence,area_sqm")
+      .select("id,company_number,proprietor_name,ownership_status,vacancy_signal,planning_signal,access_signal,assembly_signal,constraint_penalty,evidence_confidence,area_sqm,raw_evidence")
       .eq("territory_id", territory.id)
       .not("company_number", "is", null);
     if (error) throw new Error(error.message);
@@ -138,12 +146,22 @@ export async function POST(request: Request) {
           }
         }
 
+        const insolvency = isInsolvencyCompanyStatus(profile.companyStatus)
+          ? await fetchCompanyInsolvencyIntelligence(profile.companyNumber)
+          : null;
+
         await Promise.all(opportunities.map(async (opportunity) => {
           const { error: updateError } = await supabase.from("opportunities").update({
             company_number: profile.companyNumber,
             company_status: profile.companyStatus,
             proprietor_name: profile.companyName,
             opportunity_score: scoreOpportunity({ ...opportunity, company_status: profile.companyStatus }),
+            raw_evidence: insolvency
+              ? {
+                ...(opportunity.raw_evidence ?? {}),
+                atlas_insolvency: insolvency,
+              }
+              : opportunity.raw_evidence ?? {},
             updated_at: profile.observedAt,
           }).eq("id", opportunity.id);
           if (updateError) throw new Error(updateError.message);
@@ -152,10 +170,29 @@ export async function POST(request: Request) {
         const { error: evidenceError } = await supabase
           .from("evidence_items")
           .upsert(
-            opportunityIds.map((opportunityId) => companyProfileEvidence(profile, opportunityId)),
+            opportunityIds.flatMap((opportunityId) => [
+              companyProfileEvidence(profile, opportunityId),
+              ...(insolvency
+                ? [
+                  companyInsolvencyEvidence(insolvency, opportunityId),
+                  companyChargesEvidence(insolvency, opportunityId),
+                ]
+                : []),
+            ]),
             { onConflict: "opportunity_id,evidence_key" },
           );
         if (evidenceError) throw new Error(evidenceError.message);
+
+        if (insolvency) {
+          for (const opportunityId of opportunityIds) {
+            for (const task of insolvencyVerificationTasks(insolvency, opportunityId)) {
+              const { error: taskError } = await supabase
+                .from("verification_tasks")
+                .upsert(task, { onConflict: "opportunity_id,task_type" });
+              if (taskError) throw new Error(taskError.message);
+            }
+          }
+        }
 
         return {
           companyNumber,
@@ -164,6 +201,9 @@ export async function POST(request: Request) {
           companyStatus: profile.companyStatus,
           opportunitiesUpdated: opportunityIds.length,
           dissolved: isDissolvedCompanyStatus(profile.companyStatus),
+          insolvencyCases: insolvency?.cases.length ?? 0,
+          activePractitioners: insolvency?.activePractitioners.length ?? 0,
+          outstandingCharges: insolvency?.outstandingCharges.length ?? 0,
         };
       } catch (companyError) {
         return {
@@ -182,6 +222,9 @@ export async function POST(request: Request) {
       companyNumbersCorrected: results.filter((result) => "corrected" in result && result.corrected).length,
       unmatchedCompanies: results.filter((result) => "matchStatus" in result && result.matchStatus === "unmatched").length,
       dissolvedCompanies: results.filter((result) => result.dissolved).length,
+      insolvencyCases: results.reduce((sum, result) => sum + ("insolvencyCases" in result ? result.insolvencyCases ?? 0 : 0), 0),
+      activePractitioners: results.reduce((sum, result) => sum + ("activePractitioners" in result ? result.activePractitioners ?? 0 : 0), 0),
+      outstandingCharges: results.reduce((sum, result) => sum + ("outstandingCharges" in result ? result.outstandingCharges ?? 0 : 0), 0),
       opportunitiesUpdated: results.reduce((sum, result) => sum + result.opportunitiesUpdated, 0),
       failed: results.filter((result) => "error" in result).length,
       results,
