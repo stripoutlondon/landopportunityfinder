@@ -194,3 +194,10 @@ Rows without a traceable source reference or address are rejected and counted. R
 ## Legal positioning
 
 Atlas surfaces leads and evidence. It must not label land ownerless or imply a right to enter or occupy it. Unregistered land is not necessarily unowned, and apparent map gaps require formal verification.
+# Property Identity adapter
+
+The server-only `GET /api/property-identity/match` endpoint exposes a narrow
+address-matching contract for Property Identity portfolio onboarding. It
+requires `PROPERTY_IDENTITY_API_KEY` as a bearer token and returns only
+property-level opportunity references, match confidence and coverage metadata.
+It does not expose private Property Identity workspace information.
