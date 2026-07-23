@@ -36,6 +36,11 @@ export type OpportunityIntelligence = {
   constraints: Array<{ dataset: string; entity: string; name: string; reference: string | null }>;
   constraintStatus: "pending" | "clear" | "flagged";
   constraintDisclaimer: string | null;
+  verification: {
+    title: { verified: boolean; sourceUrl: string | null; checkedAt: string | null };
+    planning: { verified: boolean; sourceUrl: string | null; checkedAt: string | null; implementationStatus: string | null };
+    access: { verified: boolean; status: string; sourceUrl: string | null; checkedAt: string | null };
+  };
 };
 
 const canonical = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -92,6 +97,26 @@ function yearsSince(value: string | null, now: Date): number | null {
 
 export function deriveOpportunityIntelligence(opportunity: Opportunity, now = new Date()): OpportunityIntelligence {
   const raw = opportunity.raw_evidence;
+  const verificationRoot = raw?.atlas_verification && typeof raw.atlas_verification === "object"
+    ? raw.atlas_verification as Record<string, unknown>
+    : null;
+  const titleVerification = verificationRoot?.title && typeof verificationRoot.title === "object"
+    ? verificationRoot.title as Record<string, unknown>
+    : null;
+  const planningVerification = verificationRoot?.planning && typeof verificationRoot.planning === "object"
+    ? verificationRoot.planning as Record<string, unknown>
+    : null;
+  const accessVerification = verificationRoot?.access && typeof verificationRoot.access === "object"
+    ? verificationRoot.access as Record<string, unknown>
+    : null;
+  const verificationValue = (record: Record<string, unknown> | null, key: string): string | null => {
+    const value = record?.[key];
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  };
+  const titleVerified = Boolean(verificationValue(titleVerification, "checkedAt") && opportunity.title_number && opportunity.proprietor_name);
+  const planningVerified = Boolean(verificationValue(planningVerification, "checkedAt") && verificationValue(planningVerification, "sourceUrl"));
+  const accessStatus = verificationValue(accessVerification, "status") ?? "unverified";
+  const accessVerified = Boolean(verificationValue(accessVerification, "checkedAt") && accessStatus !== "unverified");
   const constraintScreen = raw?.atlas_constraints && typeof raw.atlas_constraints === "object"
     ? raw.atlas_constraints as Record<string, unknown>
     : null;
@@ -100,7 +125,7 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     : [];
   const constraintsChecked = Boolean(constraintScreen?.checkedAt);
   const constraintStatus = constraintsChecked ? (constraints.length ? "flagged" : "clear") : "pending";
-  const planningPosition = rawValue(raw, ["planning-permission-status", "development status", "status"]) ?? "Not supplied";
+  const planningPosition = verificationValue(planningVerification, "status") ?? rawValue(raw, ["planning-permission-status", "development status", "status"]) ?? "Not supplied";
   const planningText = planningPosition.toLowerCase();
   const planningGroup: PlanningGroup = /not permissioned|expired|lapsed|withdrawn|refused/.test(planningText)
     ? "unpermissioned"
@@ -118,10 +143,13 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
   const notes = rawValue(raw, ["notes"]);
   const combinedText = `${opportunity.name} ${opportunity.address ?? ""} ${opportunity.locality ?? ""} ${notes ?? ""}`.toLowerCase();
   const siteTypes = classifySiteTypes(combinedText);
-  const planningHistoryUrl = rawValue(raw, ["planning-permission-history", "planning permission history"]);
-  const planningPermissionDate = rawValue(raw, ["planning-permission-date", "planning permission date"]);
+  const planningHistoryUrl = verificationValue(planningVerification, "sourceUrl") ?? rawValue(raw, ["planning-permission-history", "planning permission history"]);
+  const planningPermissionDate = verificationValue(planningVerification, "decisionDate") ?? rawValue(raw, ["planning-permission-date", "planning permission date"]);
   const planningAgeYears = yearsSince(planningPermissionDate, now);
-  const planningReferences = parsePlanningReferences(`${notes ?? ""} ${opportunity.source_reference ?? ""}`);
+  const planningReferences = [...new Set([
+    ...parsePlanningReferences(`${notes ?? ""} ${opportunity.source_reference ?? ""}`),
+    ...(verificationValue(planningVerification, "reference") ? [verificationValue(planningVerification, "reference")!] : []),
+  ])];
   const appearsStarted = /\bstarted\b|under construction|completed/i.test(notes ?? "");
   const stalePlanning = planningGroup === "permissioned" && (planningAgeYears ?? 0) >= 3 && !appearsStarted;
   const priorityReasons: string[] = [];
@@ -158,16 +186,16 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
   if (!planningHistoryUrl) evidenceGaps.push("direct planning-history record");
   if (minimumDwellings === null && maximumDwellings === null) evidenceGaps.push("stated development capacity");
   if (ownershipGroup === "unknown" || ownershipGroup === "mixed") evidenceGaps.push("clear ownership route");
-  if (opportunity.access_signal === 0) evidenceGaps.push("highway and access evidence");
+  if (!accessVerified) evidenceGaps.push("highway and access evidence");
   if (!constraintsChecked) evidenceGaps.push("constraint screening");
   const nextActions: EvidenceAction[] = [];
   if (!opportunity.title_number || !opportunity.proprietor_name) nextActions.push({ type: "title", title: "Confirm title and proprietor", detail: "Obtain the current HM Land Registry title register and plan; do not infer ownership from the brownfield record.", priority: "high" });
-  if (planningGroup === "unpermissioned" || stalePlanning || !planningHistoryUrl) nextActions.push({ type: "planning", title: "Verify the live planning position", detail: stalePlanning ? "Check whether the recorded permission was implemented, superseded or has lapsed." : "Review Hertsmere's planning portal, decision notice and supporting documents.", priority: "high" });
+  if (stalePlanning || (!planningVerified && (planningGroup === "unpermissioned" || !planningHistoryUrl))) nextActions.push({ type: "planning", title: "Verify the live planning position", detail: stalePlanning ? "Check whether the recorded permission was implemented, superseded or has lapsed." : "Review Hertsmere's planning portal, decision notice and supporting documents.", priority: "high" });
   if (minimumDwellings === null && maximumDwellings === null) nextActions.push({ type: "capacity", title: "Establish indicative capacity", detail: "Review the site plan, policy context and nearby schemes before relying on a dwelling estimate.", priority: "normal" });
-  if (opportunity.company_number) nextActions.push({ type: "company", title: "Enrich the corporate proprietor", detail: "Check the company's live status, insolvency indicators and filing position through Companies House.", priority: "high" });
+  if (opportunity.company_number && !opportunity.company_status) nextActions.push({ type: "company", title: "Enrich the corporate proprietor", detail: "Check the company's live status, insolvency indicators and filing position through Companies House.", priority: "high" });
   if (!constraintsChecked) nextActions.push({ type: "constraints", title: "Run constraints and access screening", detail: "Check Green Belt, flood, heritage, trees, highways and lawful access before progressing the lead.", priority: "normal" });
   else if (constraints.length) nextActions.push({ type: "constraints", title: "Verify flagged constraints", detail: "Review authoritative source records and assess how the indicative constraints affect deliverability.", priority: "high" });
-  else if (opportunity.access_signal === 0) nextActions.push({ type: "constraints", title: "Verify highway and lawful access", detail: "The indicative constraint screen is complete, but highway and title access evidence is still required.", priority: "normal" });
+  else if (!accessVerified) nextActions.push({ type: "constraints", title: "Verify highway and lawful access", detail: "The indicative constraint screen is complete, but highway and title access evidence is still required.", priority: "normal" });
 
   return {
     planningPosition,
@@ -195,5 +223,24 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     constraints,
     constraintStatus,
     constraintDisclaimer: typeof constraintScreen?.disclaimer === "string" ? constraintScreen.disclaimer : null,
+    verification: {
+      title: {
+        verified: titleVerified,
+        sourceUrl: verificationValue(titleVerification, "sourceUrl"),
+        checkedAt: verificationValue(titleVerification, "checkedAt"),
+      },
+      planning: {
+        verified: planningVerified,
+        sourceUrl: verificationValue(planningVerification, "sourceUrl"),
+        checkedAt: verificationValue(planningVerification, "checkedAt"),
+        implementationStatus: verificationValue(planningVerification, "implementationStatus"),
+      },
+      access: {
+        verified: accessVerified,
+        status: accessStatus,
+        sourceUrl: verificationValue(accessVerification, "sourceUrl"),
+        checkedAt: verificationValue(accessVerification, "checkedAt"),
+      },
+    },
   };
 }

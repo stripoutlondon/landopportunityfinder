@@ -55,6 +55,18 @@ test("recognises a candidate when title, planning and constraints evidence are p
     proprietor_name: "ATLAS LAND LIMITED",
     company_number: "01234567",
     company_status: "active",
+    raw_evidence: {
+      "planning-permission-status": "not permissioned",
+      "planning-permission-history": "https://example.test/planning",
+      "minimum-net-dwellings": "25",
+      "maximum-net-dwellings": "35",
+      atlas_constraints: { checkedAt: "2026-07-23T09:00:00Z", constraints: [], status: "clear" },
+      atlas_verification: {
+        title: { checkedAt: "2026-07-23T10:00:00Z", sourceUrl: "https://example.test/title" },
+        planning: { checkedAt: "2026-07-23T10:00:00Z", sourceUrl: "https://example.test/planning", status: "not permissioned" },
+        access: { checkedAt: "2026-07-23T10:00:00Z", sourceUrl: "https://example.test/access", status: "confirmed" },
+      },
+    },
   }));
   assert.equal(assessment.stage, "candidate");
   assert.ok(assessment.acquisitionClarity >= 80);

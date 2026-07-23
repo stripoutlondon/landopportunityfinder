@@ -117,7 +117,10 @@ export function assessOpportunityVerification(
     + evidenceQuality * 0.18,
   );
 
-  const stage: VerificationStage = ownershipKnown && planningLinked && intelligence.constraintsChecked
+  const stage: VerificationStage = intelligence.verification.title.verified
+    && intelligence.verification.planning.verified
+    && intelligence.verification.access.verified
+    && intelligence.constraintsChecked
     ? "candidate"
     : intelligence.constraintsChecked ? "screened" : "lead";
   const decision: VerificationDecision = materialRiskCount > 0 || verificationScore < 45

@@ -2,7 +2,15 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.7 capabilities
+## Release 0.8 capabilities
+
+- Protected verification-evidence ingestion for official title, planning and access research
+- HTTPS-only evidence-source validation and repeat-safe evidence updates
+- Automatic completion of the matching human verification task
+- Verified evidence gates on every Atlas case file
+- Candidate status reserved for sites with evidenced title, live planning position, access and initial constraints
+
+Release 0.7 also provides:
 
 - Independent verification scoring across commercial potential, deliverability, acquisition clarity and evidence quality
 - Explainable `investigate`, `monitor` and `hold` decisions
@@ -78,6 +86,7 @@ Set these variables in Vercel:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ATLAS_INGESTION_SECRET`
 - `COMPANIES_HOUSE_API_KEY` (required only for protected corporate enrichment)
+- `HMLR_DATA_API_KEY` (server-only access to licensed HMLR dataset metadata and download links)
 
 The service-role and ingestion keys are server-only. Never expose them in browser code, GitHub, screenshots, logs or chat.
 
@@ -90,6 +99,16 @@ When an Atlas lead has a verified `company_number`, send an authorised `POST` re
 ```
 
 with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas fetches the official company profile using the server-only Companies House key, updates the matched lead and stores traceable evidence. It does not search for or infer a private owner.
+
+## Analyst verification evidence
+
+Send an authorised `POST` request to:
+
+```text
+/api/enrichment/verification/<opportunity-id>
+```
+
+with one or more `title`, `planning` or `access` sections. Every section requires an HTTPS source URL. Atlas updates the existing lead, stores traceable evidence, recalculates the score and completes the matching verification task. Never use an inferred owner or an unverified mapping observation as verified evidence.
 
 ## Indicative Hertsmere constraints sync
 
@@ -104,6 +123,21 @@ Atlas checks each geocoded Hertsmere lead against official Planning Data point-q
 ## Licensed HMLR corporate ownership matching
 
 Send authorised `multipart/form-data` to `POST /api/enrichment/hmlr/corporate` with a `file` containing the account holder's licensed UK corporate ownership CSV. Atlas only writes a match where the postcode is exact and the property-address similarity is strong and unambiguous. Every result still requires a current official title register and plan.
+
+National CCOD releases are too large for a Vercel request. Prepare the licensed
+Hertsmere subset locally, then send only that subset to Atlas:
+
+```powershell
+.\scripts\prepare-hmlr-data.ps1 `
+  -CcodZip "C:\path\to\CCOD_FULL_YYYY_MM.zip" `
+  -InspireZip "C:\path\to\Hertsmere_Borough_Council.zip"
+
+.\scripts\import-hmlr-ccod.ps1 `
+  -CsvPath ".\work\hmlr-prepared\CCOD_HERTSMERE.csv"
+```
+
+Both raw and prepared licensed data are ignored by Git. The import script asks
+for `ATLAS_INGESTION_SECRET` securely and does not save it.
 
 ## Official Hertsmere brownfield sync
 

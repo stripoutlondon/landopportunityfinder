@@ -307,6 +307,49 @@
   text-transform: uppercase;
 }
 
+.verification-panel {
+  margin-bottom: 18px;
+}
+
+.verification-gates {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.verification-gates article {
+  display: grid;
+  gap: 7px;
+  min-height: 140px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fcfbf8;
+}
+
+.verification-gates article small {
+  color: var(--muted);
+}
+
+.verification-gates article a {
+  margin-top: auto;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gate-state {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.gate-state.verified { background: #dff4e8; color: #17613d; }
+.gate-state.pending { background: #f1eee7; color: #685f50; }
+
 @media (max-width: 1080px) {
   .sprint3-filters {
     grid-template-columns: repeat(3, 1fr);
@@ -322,6 +365,10 @@
 
   .committee-scores {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .verification-gates {
+    grid-template-columns: 1fr;
   }
 }
 
