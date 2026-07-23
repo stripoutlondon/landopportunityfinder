@@ -70,7 +70,7 @@ test("recognises a candidate when title, planning and constraints evidence are p
   }));
   assert.equal(assessment.stage, "candidate");
   assert.ok(assessment.acquisitionClarity >= 80);
-  assert.ok(assessment.strengths.includes("Registered title and proprietor have been matched"));
+  assert.ok(assessment.strengths.includes("A dataset title-and-proprietor match has been captured for current-register verification"));
 });
 
 test("holds a lead with a material environmental constraint", () => {
