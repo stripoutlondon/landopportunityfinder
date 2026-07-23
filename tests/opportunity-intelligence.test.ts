@@ -117,7 +117,42 @@ test("prioritises a proprietor in liquidation with a specific acquisition action
   assert.equal(result.corporateSignal, "insolvency");
   assert.match(result.corporateStatusLabel, /liquidation/i);
   assert.ok(result.priorityReasons.includes("corporate proprietor is in formal insolvency"));
-  assert.ok(result.nextActions.some((action) => action.title === "Identify the appointed insolvency practitioner"));
+  assert.ok(result.evidenceGaps.includes("detailed insolvency case record"));
+  assert.ok(result.nextActions.some((action) => action.title === "Enrich the insolvency case"));
+});
+
+test("turns detailed insolvency evidence into a named authority-check action", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    company_number: "10963682",
+    company_status: "liquidation",
+    proprietor_name: "ATLAS PROPERTY LIMITED",
+    raw_evidence: {
+      "planning-permission-status": "not permissioned",
+      atlas_insolvency: {
+        companyNumber: "10963682",
+        status: "liquidation",
+        cases: [{ type: "creditors-voluntary-liquidation", practitioners: [] }],
+        activePractitioners: [{
+          name: "JANE OFFICEHOLDER",
+          role: "final-liquidator",
+          appointedOn: "2026-04-02",
+          ceasedToActOn: null,
+          isActing: true,
+        }],
+        charges: [],
+        outstandingCharges: [],
+        observedAt: "2026-07-23T12:00:00Z",
+        insolvencySourceUrl: "https://example.test/insolvency",
+        chargesSourceUrl: "https://example.test/charges",
+      },
+    },
+  }));
+  assert.equal(result.insolvency?.activePractitioners[0].name, "JANE OFFICEHOLDER");
+  assert.ok(!result.evidenceGaps.includes("detailed insolvency case record"));
+  assert.ok(result.nextActions.some((action) =>
+    action.title === "Confirm insolvency practitioner authority"
+    && action.detail.includes("JANE OFFICEHOLDER"),
+  ));
 });
 
 test("treats a Companies House miss as an evidence gap rather than a verified company", () => {

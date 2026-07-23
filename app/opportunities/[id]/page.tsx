@@ -108,6 +108,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
       <dl className="evidence-facts"><div><dt>Title number</dt><dd>{item.title_number ?? "Not matched"}</dd></div><div><dt>Proprietor</dt><dd>{item.proprietor_name ?? "Name pending enrichment"}</dd></div><div><dt>Company number</dt><dd>{item.company_number ?? "Not supplied in source"}</dd></div><div><dt>Companies House status</dt><dd>{item.company_status ?? "Not yet enriched"}</dd></div></dl>
       {item.company_number && intelligence.corporateSignal !== "unmatched" && <a className="button-link" href={`https://find-and-update.company-information.service.gov.uk/company/${encodeURIComponent(item.company_number)}`} target="_blank" rel="noreferrer">Open Companies House profile ↗</a>}
       {item.company_number && intelligence.corporateSignal === "unmatched" && <a className="button-link" href={`https://find-and-update.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(item.proprietor_name ?? item.company_number)}`} target="_blank" rel="noreferrer">Search Companies House by proprietor ↗</a>}
+      {intelligence.insolvency && <InsolvencyCasePanel intelligence={intelligence.insolvency} />}
       <p className="constraint-warning">Dataset match only. Obtain the current official title register and plan before contacting a proprietor or making an acquisition decision.</p>
     </section>}
     {(intelligence.notes || intelligence.sitePlanUrl || intelligence.planningHistoryUrl) && <section className="panel source-intelligence"><h2>Source intelligence</h2>{intelligence.notes && <p>{intelligence.notes}</p>}<div className="toolbar">{intelligence.sitePlanUrl && <a className="button-link" href={intelligence.sitePlanUrl} target="_blank" rel="noreferrer">Open official site plan ↗</a>}{intelligence.planningHistoryUrl && <a className="button-link" href={intelligence.planningHistoryUrl} target="_blank" rel="noreferrer">Open planning history ↗</a>}</div></section>}
@@ -128,4 +129,34 @@ function CommitteeScore({ label, value }: { label: string; value: number }) {
 
 function VerificationGate({ label, verified, sourceUrl, checkedAt, detail }: { label: string; verified: boolean; sourceUrl: string | null; checkedAt: string | null; detail?: string | null }) {
   return <article><span className={`gate-state ${verified ? "verified" : "pending"}`}>{verified ? "Verified" : "Required"}</span><strong>{label}</strong>{detail && <small>{detail.replaceAll("-", " ")}</small>}{checkedAt && <small>Checked {new Date(checkedAt).toLocaleDateString("en-GB")}</small>}{sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">Open evidence ↗</a>}</article>;
+}
+
+function InsolvencyCasePanel({ intelligence }: { intelligence: NonNullable<ReturnType<typeof deriveOpportunityIntelligence>["insolvency"]> }) {
+  const caseTypes = [...new Set(intelligence.cases.map((item) => item.type.replaceAll("-", " ")))];
+  const chargeHolders = [...new Set(intelligence.outstandingCharges.flatMap((item) => item.personsEntitled))];
+  return <div className="insolvency-dossier">
+    <div className="topbar"><div><span className="eyebrow">Live insolvency dossier</span><h3>Authority and creditor evidence</h3></div><span className="tiny">Checked {new Date(intelligence.observedAt).toLocaleDateString("en-GB")}</span></div>
+    <div className="insolvency-metrics">
+      <div><strong>{intelligence.cases.length}</strong><span>insolvency cases</span></div>
+      <div><strong>{intelligence.activePractitioners.length}</strong><span>acting practitioners</span></div>
+      <div><strong>{intelligence.outstandingCharges.length}</strong><span>outstanding charges</span></div>
+    </div>
+    <dl className="evidence-facts">
+      <div><dt>Case type</dt><dd>{caseTypes.join(", ") || intelligence.status || "Not supplied"}</dd></div>
+      <div><dt>Practitioner route</dt><dd>{intelligence.activePractitioners.length ? "Office-holder identified — authority still requires confirmation" : "No currently acting practitioner returned"}</dd></div>
+      <div><dt>Company charge holders</dt><dd>{chargeHolders.join(", ") || "No outstanding charge holder returned"}</dd></div>
+    </dl>
+    {intelligence.activePractitioners.length > 0 && <div className="practitioner-list">
+      {intelligence.activePractitioners.map((practitioner, index) => <article key={`${practitioner.name}-${practitioner.role}-${index}`}>
+        <span>{practitioner.role?.replaceAll("-", " ") ?? "practitioner"}</span>
+        <strong>{practitioner.name}</strong>
+        <small>{practitioner.appointedOn ? `Appointed ${new Date(practitioner.appointedOn).toLocaleDateString("en-GB")}` : "Appointment date not supplied"}</small>
+      </article>)}
+    </div>}
+    <div className="toolbar">
+      <a className="button-link" href={intelligence.insolvencySourceUrl} target="_blank" rel="noreferrer">Open insolvency record ↗</a>
+      <a className="button-link" href={intelligence.chargesSourceUrl} target="_blank" rel="noreferrer">Open company charges ↗</a>
+    </div>
+    <p className="constraint-warning">Practitioners and charges are company-level evidence. They do not prove that a particular property remains an insolvency asset or that an office-holder can sell it. Confirm against the current title and directly with the authorised practitioner.</p>
+  </div>;
 }

@@ -123,6 +123,49 @@ test("raises a verified liquidation signal while preserving insolvency risk", ()
   assert.match(liquidation.nextBestAction, /insolvency practitioner/);
 });
 
+test("surfaces named practitioners and outstanding-charge risk from a detailed insolvency record", () => {
+  const assessment = assessOpportunityVerification(opportunity({
+    title_number: "HD123456",
+    proprietor_name: "ATLAS PROPERTY LIMITED",
+    company_number: "10963682",
+    company_status: "liquidation",
+    raw_evidence: {
+      "planning-permission-status": "not permissioned",
+      "planning-permission-history": "https://example.test/planning",
+      "maximum-net-dwellings": "12",
+      atlas_constraints: { checkedAt: "2026-07-23T09:00:00Z", constraints: [], status: "clear" },
+      atlas_insolvency: {
+        companyNumber: "10963682",
+        status: "liquidation",
+        cases: [{ type: "creditors-voluntary-liquidation", practitioners: [] }],
+        activePractitioners: [{
+          name: "JANE OFFICEHOLDER",
+          role: "final-liquidator",
+          appointedOn: "2026-04-02",
+          ceasedToActOn: null,
+          isActing: true,
+        }],
+        charges: [],
+        outstandingCharges: [{
+          id: "charge-one",
+          chargeCode: null,
+          status: "outstanding",
+          createdOn: null,
+          satisfiedOn: null,
+          personsEntitled: ["SECURED LENDER PLC"],
+          classification: [],
+        }],
+        observedAt: "2026-07-23T12:00:00Z",
+        insolvencySourceUrl: "https://example.test/insolvency",
+        chargesSourceUrl: "https://example.test/charges",
+      },
+    },
+  }));
+  assert.ok(assessment.strengths.some((strength) => /Detailed Companies House insolvency/.test(strength)));
+  assert.ok(assessment.risks.some((risk) => risk.title === "Outstanding company charges"));
+  assert.match(assessment.nextBestAction, /JANE OFFICEHOLDER/);
+});
+
 test("does not treat an unmatched company number as verified", () => {
   const assessment = assessOpportunityVerification(opportunity({
     title_number: "HD123456",
