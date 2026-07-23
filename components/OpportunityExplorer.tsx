@@ -5,6 +5,7 @@ import Link from "next/link";
 import OpportunityMap from "@/components/OpportunityMap";
 import { deriveOpportunityIntelligence } from "@/lib/atlas/opportunity-intelligence";
 import { assessOpportunityVerification, type VerificationDecision } from "@/lib/atlas/verification";
+import { assessAcquisitionRoute } from "@/lib/atlas/acquisition-route";
 import type { Opportunity } from "@/lib/types";
 
 type SortMode = "verification" | "priority" | "readiness" | "capacity" | "area";
@@ -101,13 +102,15 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
       </div>
     </div>
     <div className="panel map-panel"><OpportunityMap items={filtered} priorityIds={rankedIds} /><div className="map-legend"><span><i className="priority-dot" />Top-ten research priority</span><span><i className="standard-dot" />Other matching leads</span></div></div>
-    <div className="panel"><div className="topbar"><strong>Ranked verification shortlist</strong><span className="tiny">Evidence-led research decisions, not acquisition or planning advice</span></div>{filtered.length === 0 ? <div className="empty">No opportunities match these acquisition criteria.</div> : <table className="table"><thead><tr><th>Verification</th><th>Decision</th><th>Opportunity</th><th>Capacity</th><th>Planning position</th><th>Constraints</th><th>Evidence</th><th>Ownership</th></tr></thead><tbody>{filtered.map((item) => {
+    <div className="panel"><div className="topbar"><strong>Ranked verification shortlist</strong><span className="tiny">Evidence-led research decisions, not acquisition or planning advice</span></div>{filtered.length === 0 ? <div className="empty">No opportunities match these acquisition criteria.</div> : <table className="table"><thead><tr><th>Verification</th><th>Decision</th><th>Opportunity</th><th>Acquisition</th><th>Capacity</th><th>Planning position</th><th>Constraints</th><th>Evidence</th><th>Ownership</th></tr></thead><tbody>{filtered.map((item) => {
       const intelligence = deriveOpportunityIntelligence(item);
       const assessment = assessOpportunityVerification(item, intelligence);
+      const acquisition = assessAcquisitionRoute(item, intelligence, assessment);
       return <tr key={item.id}>
         <td><span className={rankedIds.has(item.id) ? "score" : "score low"}>{assessment.verificationScore}</span>{rankedIds.has(item.id) && <div className="tiny">Top 10</div>}</td>
         <td><span className={`decision-badge ${assessment.decision}`}>{assessment.decision}</span><div className="tiny">{assessment.stage}</div></td>
         <td><Link href={`/opportunities/${item.id}`}><strong>{item.name}</strong></Link><div className="tiny">{intelligence.location}{item.postcode ? ` · ${item.postcode}` : ""}</div><div className="signals">{intelligence.siteTypes.map((type) => <span className="signal" key={type}>{type}</span>)}</div></td>
+        <td><span className={`stage-badge ${acquisition.pipelineStage}`}>{acquisition.pipelineStage}</span><div className="tiny">{acquisition.readiness}% route ready</div></td>
         <td><strong>{intelligence.capacityLabel}</strong><div className="tiny">{item.area_sqm ? `${(item.area_sqm / 10_000).toFixed(2)} ha` : "Area pending"}</div></td>
         <td>{intelligence.planningPosition}<div className="tiny">{intelligence.planningAgeYears !== null ? `${intelligence.planningAgeYears} years since recorded decision` : intelligence.priorityReasons.slice(0, 2).join(" · ") || "Verify against council records"}</div></td>
         <td><span className={`constraint-state ${intelligence.constraintStatus}`}>{intelligence.constraintStatus}</span><div className="tiny">{intelligence.constraintsChecked ? `${intelligence.constraints.length} signals` : "Screen required"}</div></td>
