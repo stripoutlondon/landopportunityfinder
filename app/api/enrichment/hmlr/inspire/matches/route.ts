@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       }, { onConflict: "opportunity_id,evidence_key" });
       if (evidenceError) throw new Error(evidenceError.message);
 
-      const { error: taskError } = await supabase.from("verification_tasks").upsert({
+      const task = {
         opportunity_id: entry.opportunityId,
         task_type: "verify_inspire_parcel",
         title: "Confirm the parcel against current title documents",
@@ -128,8 +128,19 @@ export async function POST(request: Request) {
         status: "open",
         priority: entry.matches.length > 1 ? "high" : "normal",
         result: { matchStatus, parcels: entry.matches },
-      }, { onConflict: "opportunity_id,task_type" });
-      if (taskError) throw new Error(taskError.message);
+      };
+      const { data: existingTasks, error: existingTaskError } = await supabase
+        .from("verification_tasks")
+        .select("id")
+        .eq("opportunity_id", entry.opportunityId)
+        .eq("task_type", task.task_type)
+        .limit(1);
+      if (existingTaskError) throw new Error(existingTaskError.message);
+      const existingTaskId = existingTasks?.[0]?.id as string | undefined;
+      const taskWrite = existingTaskId
+        ? await supabase.from("verification_tasks").update(task).eq("id", existingTaskId)
+        : await supabase.from("verification_tasks").insert(task);
+      if (taskWrite.error) throw new Error(taskWrite.error.message);
     }
 
     return NextResponse.json({
