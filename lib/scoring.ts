@@ -1,3 +1,5 @@
+import { classifyCompanyStatus } from "@/lib/atlas/enrichment/companies-house";
+
 export type ScoreInput = {
   ownership_status?: string | null;
   company_status?: string | null;
@@ -16,10 +18,12 @@ const clamp = (value: number, min = 0, max = 100) =>
 const signal = (value: number | undefined) => clamp(value ?? 0);
 
 export function scoreOpportunity(input: ScoreInput): number {
-  const companyStatus = input.company_status?.trim().toLowerCase() ?? "";
+  const corporateSignal = classifyCompanyStatus(input.company_status);
   const ownershipStatus = input.ownership_status?.trim().toLowerCase() ?? "";
 
-  const dissolvedCompanyBonus = companyStatus.includes("dissolved") ? 12 : 0;
+  const corporateOpportunityBonus = corporateSignal === "dissolved"
+    ? 12
+    : corporateSignal === "insolvency" ? 10 : 0;
   const ownershipUncertaintyBonus =
     ownershipStatus.includes("unclear") ||
     ownershipStatus.includes("unknown") ||
@@ -39,7 +43,7 @@ export function scoreOpportunity(input: ScoreInput): number {
   return Math.round(
     clamp(
       weightedSignals +
-        dissolvedCompanyBonus +
+        corporateOpportunityBonus +
         ownershipUncertaintyBonus +
         viableScaleBonus -
         riskDeduction,
@@ -55,9 +59,12 @@ export function explainScore(input: ScoreInput, score = scoreOpportunity(input))
   if (signal(input.vacancy_signal) >= 60) strengths.push("vacancy or underuse");
   if (signal(input.access_signal) >= 60) strengths.push("site access");
   if (signal(input.assembly_signal) >= 60) strengths.push("assembly potential");
-  if (input.company_status?.toLowerCase().includes("dissolved")) {
+  const corporateSignal = classifyCompanyStatus(input.company_status);
+  if (corporateSignal === "dissolved") {
     strengths.push("dissolved-company ownership signal");
   }
+  if (corporateSignal === "insolvency") strengths.push("corporate insolvency signal");
+  if (corporateSignal === "unmatched") cautions.push("an unmatched corporate identifier");
   if (signal(input.constraint_penalty) >= 40) cautions.push("material constraints");
   if (signal(input.evidence_confidence) < 50) cautions.push("limited evidence confidence");
 

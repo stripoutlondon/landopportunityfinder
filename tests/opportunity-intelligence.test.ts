@@ -107,3 +107,26 @@ test("surfaces flagged constraints and asks for authoritative verification", () 
   assert.equal(result.constraints[0].dataset, "green-belt");
   assert.ok(result.nextActions.some((action) => action.title === "Verify flagged constraints" && action.priority === "high"));
 });
+
+test("prioritises a proprietor in liquidation with a specific acquisition action", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    company_number: "10963682",
+    company_status: "liquidation",
+    proprietor_name: "ATLAS PROPERTY LIMITED",
+  }));
+  assert.equal(result.corporateSignal, "insolvency");
+  assert.match(result.corporateStatusLabel, /liquidation/i);
+  assert.ok(result.priorityReasons.includes("corporate proprietor is in formal insolvency"));
+  assert.ok(result.nextActions.some((action) => action.title === "Identify the appointed insolvency practitioner"));
+});
+
+test("treats a Companies House miss as an evidence gap rather than a verified company", () => {
+  const result = deriveOpportunityIntelligence(opportunity({
+    company_number: "00058224",
+    company_status: "not-found",
+    proprietor_name: "UNMATCHED PROPRIETOR",
+  }));
+  assert.equal(result.corporateSignal, "unmatched");
+  assert.ok(result.evidenceGaps.includes("verified corporate identifier"));
+  assert.ok(result.nextActions.some((action) => action.title === "Correct the corporate identifier"));
+});
