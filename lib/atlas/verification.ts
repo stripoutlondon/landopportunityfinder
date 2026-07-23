@@ -176,7 +176,7 @@ export function assessOpportunityVerification(
   if (intelligence.planningGroup === "unpermissioned") strengths.push("No current permission recorded, preserving a planning-uplift angle");
   if (intelligence.stalePlanning) strengths.push("Older permission may warrant a renewed planning and acquisition review");
   if (intelligence.constraintStatus === "clear") strengths.push("No entities returned by the initial constraints screen");
-  if (ownershipKnown) strengths.push("Registered title and proprietor have been matched");
+  if (ownershipKnown) strengths.push("A dataset title-and-proprietor match has been captured for current-register verification");
   if (companyVerified) strengths.push("Corporate proprietor status has been checked");
   if (intelligence.corporateSignal === "insolvency") strengths.push("Corporate proprietor is in formal insolvency, creating a time-sensitive acquisition signal");
   if (intelligence.insolvency?.cases.length) strengths.push("Detailed Companies House insolvency cases and practitioners have been captured");

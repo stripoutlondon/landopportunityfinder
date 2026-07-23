@@ -6,6 +6,7 @@ import type { Opportunity } from "@/lib/types";
 import { deriveOpportunityIntelligence } from "@/lib/atlas/opportunity-intelligence";
 import { constraintLabel } from "@/lib/atlas/enrichment/constraints";
 import { assessOpportunityVerification } from "@/lib/atlas/verification";
+import { assessAcquisitionRoute } from "@/lib/atlas/acquisition-route";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +37,14 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   if (!item) notFound();
   const intelligence = deriveOpportunityIntelligence(item);
   const assessment = assessOpportunityVerification(item, intelligence);
+  const acquisition = assessAcquisitionRoute(item, intelligence, assessment);
 
   const mapsUrl = item.latitude !== null && item.longitude !== null
     ? `https://www.openstreetmap.org/?mlat=${item.latitude}&mlon=${item.longitude}#map=17/${item.latitude}/${item.longitude}`
     : null;
 
   return <main className="shell">
-    <Link className="tiny" href="/">← Back to opportunities</Link>
+    <div className="case-nav"><Link className="tiny" href="/">← Back to opportunities</Link><div className="toolbar"><Link className="tiny" href="/verification">Verification queue</Link><Link className="button-link" href={`/opportunities/${item.id}/report`}>Investment Committee report</Link></div></div>
     <div className="panel investigation-header">
       <div><span className="score">{assessment.verificationScore}</span><div className="tiny">Verification score</div><span className={`decision-badge ${assessment.decision}`}>{assessment.decision}</span><span className="readiness-badge">{intelligence.evidenceReadiness}% evidence ready</span>{isDemo && <span className="badge">Demonstration</span>}</div>
       <div><h1>{item.name}</h1><p className="lead">{item.rationale}</p><p className="tiny">{item.address}{item.postcode ? ` · ${item.postcode}` : ""}</p></div>
@@ -60,6 +62,16 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
         <div><h3>Risks and unknowns</h3>{assessment.risks.length ? <ul>{assessment.risks.map((risk) => <li key={`${risk.title}-${risk.severity}`}><span className={`risk-severity ${risk.severity}`}>{risk.severity}</span><strong>{risk.title}</strong><small>{risk.detail}</small></li>)}</ul> : <p>No material risks surfaced by the current evidence.</p>}<p className="tiny">{assessment.unknowns.length} core evidence gap{assessment.unknowns.length === 1 ? "" : "s"} remain.</p></div>
       </div>
       <div className="next-best-action"><span>Next best action</span><strong>{assessment.nextBestAction}</strong></div>
+    </section>
+    <section className="panel acquisition-route-panel">
+      <div className="topbar"><div><span className="eyebrow">Sprint 10 acquisition route</span><h2>{acquisition.routeLabel}</h2></div><div className="route-status"><span className={`stage-badge ${acquisition.pipelineStage}`}>{acquisition.pipelineStage}</span><strong>{acquisition.readiness}% route ready</strong></div></div>
+      <div className="acquisition-summary">
+        <div><span>Proposed counterparty</span><strong>{acquisition.counterparty}</strong></div>
+        <div><span>Contact decision</span><strong>{acquisition.canContact ? "Controlled contact permitted" : "Do not contact yet"}</strong></div>
+      </div>
+      <p className={`route-recommendation ${acquisition.canContact ? "ready" : "blocked"}`}>{acquisition.recommendation}</p>
+      <div className="acquisition-gates">{acquisition.gates.map((gate) => <article key={gate.key}><span className={`gate-state ${gate.state}`}>{gate.state}</span><strong>{gate.label}</strong><p>{gate.detail}</p></article>)}</div>
+      <div className="topbar route-footer"><p className="tiny">{acquisition.blockers.length ? `${acquisition.blockers.length} blocking gate${acquisition.blockers.length === 1 ? "" : "s"}` : "No blocking acquisition gates"}</p><Link className="button-link" href={`/opportunities/${item.id}/report`}>Open printable report</Link></div>
     </section>
     <section className="panel verification-panel">
       <div className="topbar"><div><span className="eyebrow">Sprint 6 due diligence</span><h2>Verified evidence gates</h2></div><span className={`stage-badge ${assessment.stage}`}>{assessment.stage}</span></div>
