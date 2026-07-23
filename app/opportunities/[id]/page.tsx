@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import type { Opportunity } from "@/lib/types";
 import { deriveOpportunityIntelligence } from "@/lib/atlas/opportunity-intelligence";
 import { constraintLabel } from "@/lib/atlas/enrichment/constraints";
+import { assessOpportunityVerification } from "@/lib/atlas/verification";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   }
   if (!item) notFound();
   const intelligence = deriveOpportunityIntelligence(item);
+  const assessment = assessOpportunityVerification(item, intelligence);
 
   const mapsUrl = item.latitude !== null && item.longitude !== null
     ? `https://www.openstreetmap.org/?mlat=${item.latitude}&mlon=${item.longitude}#map=17/${item.latitude}/${item.longitude}`
@@ -42,9 +44,23 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
   return <main className="shell">
     <Link className="tiny" href="/">← Back to opportunities</Link>
     <div className="panel investigation-header">
-      <div><span className="score">{intelligence.researchPriority}</span><div className="tiny">Research priority</div><span className="readiness-badge">{intelligence.evidenceReadiness}% evidence ready</span>{isDemo && <span className="badge">Demonstration</span>}</div>
+      <div><span className="score">{assessment.verificationScore}</span><div className="tiny">Verification score</div><span className={`decision-badge ${assessment.decision}`}>{assessment.decision}</span><span className="readiness-badge">{intelligence.evidenceReadiness}% evidence ready</span>{isDemo && <span className="badge">Demonstration</span>}</div>
       <div><h1>{item.name}</h1><p className="lead">{item.rationale}</p><p className="tiny">{item.address}{item.postcode ? ` · ${item.postcode}` : ""}</p></div>
     </div>
+    <section className="panel committee-panel">
+      <div className="topbar"><div><span className="eyebrow">Atlas investment committee</span><h2>{assessment.committeeSummary}</h2></div><span className={`stage-badge ${assessment.stage}`}>{assessment.stage}</span></div>
+      <div className="committee-scores">
+        <CommitteeScore label="Commercial potential" value={assessment.commercialPotential} />
+        <CommitteeScore label="Deliverability" value={assessment.deliverability} />
+        <CommitteeScore label="Acquisition clarity" value={assessment.acquisitionClarity} />
+        <CommitteeScore label="Evidence quality" value={assessment.evidenceQuality} />
+      </div>
+      <div className="committee-columns">
+        <div><h3>Reasons to progress</h3>{assessment.strengths.length ? <ul>{assessment.strengths.map((strength) => <li key={strength}>{strength}</li>)}</ul> : <p className="empty">No verified strength is strong enough to present yet.</p>}</div>
+        <div><h3>Risks and unknowns</h3>{assessment.risks.length ? <ul>{assessment.risks.map((risk) => <li key={`${risk.title}-${risk.severity}`}><span className={`risk-severity ${risk.severity}`}>{risk.severity}</span><strong>{risk.title}</strong><small>{risk.detail}</small></li>)}</ul> : <p>No material risks surfaced by the current evidence.</p>}<p className="tiny">{assessment.unknowns.length} core evidence gap{assessment.unknowns.length === 1 ? "" : "s"} remain.</p></div>
+      </div>
+      <div className="next-best-action"><span>Next best action</span><strong>{assessment.nextBestAction}</strong></div>
+    </section>
     <div className="grid2 investigation-grid">
       <section className="panel"><h2>Why this site?</h2><div className="signal-grid">
         <Signal label="Planning" value={item.planning_signal} />
@@ -80,4 +96,8 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
 
 function Signal({ label, value, inverse = false }: { label: string; value: number; inverse?: boolean }) {
   return <div className="signal-card"><span>{label}</span><strong>{value}</strong><div className="signal-track"><i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} className={inverse ? "inverse" : ""} /></div></div>;
+}
+
+function CommitteeScore({ label, value }: { label: string; value: number }) {
+  return <div><span>{label}</span><strong>{value}</strong><div className="readiness-track"><i style={{ width: `${value}%` }} /></div></div>;
 }

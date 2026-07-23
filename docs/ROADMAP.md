@@ -45,9 +45,18 @@
 - Licensed HMLR corporate ownership matching
 - Ambiguous ownership-match protection
 
-## Next - Investment committee intelligence
+## Release 0.7 - Verification and investment committee
+
+- Independent commercial-potential, deliverability, acquisition-clarity and evidence-quality scores
+- Explicit investigate, monitor and hold decisions
+- Candidate, screened and lead verification stages
+- Constraint-aware top-ten shortlist
+- Investment committee brief, strengths, risks, unknowns and next-best action
+
+## Next - First verified opportunities
 
 - Highways and lawful access evidence
 - Planning decision and document ingestion
-- Human-reviewed high-priority shortlist
-- Investment committee brief and outcome tracking
+- Companies House enrichment of verified corporate titles
+- Human review of the first three acquisition candidates
+- Outcome tracking

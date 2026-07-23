@@ -2,7 +2,15 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.6 capabilities
+## Release 0.7 capabilities
+
+- Independent verification scoring across commercial potential, deliverability, acquisition clarity and evidence quality
+- Explainable `investigate`, `monitor` and `hold` decisions
+- Candidate, screened and lead stages that prevent incomplete research being presented as verified
+- Constraint-aware shortlist ranking and decision filters
+- Investment committee case file with reasons to progress, risks, unknowns and a next-best action
+
+Release 0.6 also provides:
 
 - Protected Planning Data screening for Green Belt, flood, heritage, trees and environmental designations
 - Explicit pending, clear and flagged constraint states without treating missing results as proof of no constraints
