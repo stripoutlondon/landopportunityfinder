@@ -44,6 +44,31 @@ test("reports missing configuration and missing companies safely", async () => {
   await assert.rejects(() => fetchCompanyProfile("12345678", { apiKey: "key", fetcher: notFound }), /not found/);
 });
 
+test("trims a copied API key before building the Companies House header", async () => {
+  let authorization = "";
+  const fetcher: typeof fetch = async (_input, init) => {
+    authorization = new Headers(init?.headers).get("authorization") ?? "";
+    return new Response(JSON.stringify({
+      company_number: "01234567",
+      company_name: "ATLAS LAND LIMITED",
+      company_status: "active",
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  await fetchCompanyProfile("01234567", { apiKey: "  copied-key\r\n", fetcher });
+  assert.equal(authorization, `Basic ${Buffer.from("copied-key:").toString("base64")}`);
+});
+
+test("includes a safe Companies House error message for configuration diagnosis", async () => {
+  const badRequest: typeof fetch = async () => new Response(
+    JSON.stringify({ error: "Invalid Authorization header" }),
+    { status: 400, headers: { "content-type": "application/json" } },
+  );
+  await assert.rejects(
+    () => fetchCompanyProfile("01234567", { apiKey: "key", fetcher: badRequest }),
+    /400: Invalid Authorization header/,
+  );
+});
+
 test("groups Atlas opportunities by a normalised company number", () => {
   const grouped = groupOpportunitiesByCompany([
     { id: "one", company_number: "1234567" },
