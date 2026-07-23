@@ -61,6 +61,15 @@ export default async function OpportunityPage({ params }: { params: Promise<{ id
       </div>
       <div className="next-best-action"><span>Next best action</span><strong>{assessment.nextBestAction}</strong></div>
     </section>
+    <section className="panel verification-panel">
+      <div className="topbar"><div><span className="eyebrow">Sprint 6 due diligence</span><h2>Verified evidence gates</h2></div><span className={`stage-badge ${assessment.stage}`}>{assessment.stage}</span></div>
+      <div className="verification-gates">
+        <VerificationGate label="Title and proprietor" verified={intelligence.verification.title.verified} sourceUrl={intelligence.verification.title.sourceUrl} checkedAt={intelligence.verification.title.checkedAt} />
+        <VerificationGate label="Planning position" verified={intelligence.verification.planning.verified} sourceUrl={intelligence.verification.planning.sourceUrl} checkedAt={intelligence.verification.planning.checkedAt} detail={intelligence.verification.planning.implementationStatus} />
+        <VerificationGate label="Highway and access" verified={intelligence.verification.access.verified} sourceUrl={intelligence.verification.access.sourceUrl} checkedAt={intelligence.verification.access.checkedAt} detail={intelligence.verification.access.status} />
+      </div>
+      <p className="constraint-warning">A site becomes an Atlas candidate only when title, live planning position, access and the initial constraints screen are all evidenced. Professional legal, planning and technical advice is still required.</p>
+    </section>
     <div className="grid2 investigation-grid">
       <section className="panel"><h2>Why this site?</h2><div className="signal-grid">
         <Signal label="Planning" value={item.planning_signal} />
@@ -100,4 +109,8 @@ function Signal({ label, value, inverse = false }: { label: string; value: numbe
 
 function CommitteeScore({ label, value }: { label: string; value: number }) {
   return <div><span>{label}</span><strong>{value}</strong><div className="readiness-track"><i style={{ width: `${value}%` }} /></div></div>;
+}
+
+function VerificationGate({ label, verified, sourceUrl, checkedAt, detail }: { label: string; verified: boolean; sourceUrl: string | null; checkedAt: string | null; detail?: string | null }) {
+  return <article><span className={`gate-state ${verified ? "verified" : "pending"}`}>{verified ? "Verified" : "Required"}</span><strong>{label}</strong>{detail && <small>{detail.replaceAll("-", " ")}</small>}{checkedAt && <small>Checked {new Date(checkedAt).toLocaleDateString("en-GB")}</small>}{sourceUrl && <a href={sourceUrl} target="_blank" rel="noreferrer">Open evidence ↗</a>}</article>;
 }

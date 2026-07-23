@@ -2,7 +2,15 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.7 capabilities
+## Release 0.8 capabilities
+
+- Protected verification-evidence ingestion for official title, planning and access research
+- HTTPS-only evidence-source validation and repeat-safe evidence updates
+- Automatic completion of the matching human verification task
+- Verified evidence gates on every Atlas case file
+- Candidate status reserved for sites with evidenced title, live planning position, access and initial constraints
+
+Release 0.7 also provides:
 
 - Independent verification scoring across commercial potential, deliverability, acquisition clarity and evidence quality
 - Explainable `investigate`, `monitor` and `hold` decisions
@@ -90,6 +98,16 @@ When an Atlas lead has a verified `company_number`, send an authorised `POST` re
 ```
 
 with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas fetches the official company profile using the server-only Companies House key, updates the matched lead and stores traceable evidence. It does not search for or infer a private owner.
+
+## Analyst verification evidence
+
+Send an authorised `POST` request to:
+
+```text
+/api/enrichment/verification/<opportunity-id>
+```
+
+with one or more `title`, `planning` or `access` sections. Every section requires an HTTPS source URL. Atlas updates the existing lead, stores traceable evidence, recalculates the score and completes the matching verification task. Never use an inferred owner or an unverified mapping observation as verified evidence.
 
 ## Indicative Hertsmere constraints sync
 

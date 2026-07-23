@@ -53,10 +53,18 @@
 - Constraint-aware top-ten shortlist
 - Investment committee brief, strengths, risks, unknowns and next-best action
 
+## Release 0.8 - Verification evidence pipeline
+
+- Protected title, planning and access verification endpoint
+- HTTPS-only evidence source validation
+- Traceable evidence timeline updates and task completion
+- Verified evidence gates in every case file
+- Candidate status requires title, planning, access and constraints evidence
+
 ## Next - First verified opportunities
 
-- Highways and lawful access evidence
-- Planning decision and document ingestion
+- Apply verified highway and lawful-access evidence
+- Apply planning decision and implementation evidence
 - Companies House enrichment of verified corporate titles
 - Human review of the first three acquisition candidates
 - Outcome tracking
