@@ -71,6 +71,25 @@ test("treats missing insolvency and charge resources as an empty checked record"
   assert.deepEqual(result.charges, []);
 });
 
+test("accepts the Companies House single-object charge classification shape", async () => {
+  const fetcher: typeof fetch = async (input) => String(input).endsWith("/insolvency")
+    ? new Response(JSON.stringify({ status: "liquidation", cases: [] }), { status: 200 })
+    : new Response(JSON.stringify({
+      items: [{
+        id: "charge-one",
+        status: "outstanding",
+        classification: { description: "Legal charge" },
+      }],
+    }), { status: 200 });
+
+  const result = await fetchCompanyInsolvencyIntelligence("10963682", {
+    apiKey: "test-key",
+    fetcher,
+  });
+
+  assert.deepEqual(result.charges[0].classification, ["Legal charge"]);
+});
+
 test("builds traceable insolvency evidence and property-specific verification tasks", async () => {
   const fetcher: typeof fetch = async (input) => String(input).endsWith("/insolvency")
     ? new Response(JSON.stringify({
