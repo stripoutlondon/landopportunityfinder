@@ -12,6 +12,11 @@ export type CompanyProfile = {
   observedAt: string;
 };
 
+export type CompanyOpportunity = {
+  id: string;
+  company_number: string | null;
+};
+
 type CompaniesHouseResponse = {
   company_number?: string;
   company_name?: string;
@@ -28,6 +33,44 @@ export function normaliseCompanyNumber(value: string): string {
   const normalised = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (!/^[A-Z0-9]{6,8}$/.test(normalised)) throw new Error("Invalid Companies House number");
   return normalised.padStart(8, "0");
+}
+
+export function groupOpportunitiesByCompany(
+  opportunities: CompanyOpportunity[],
+): Map<string, string[]> {
+  const grouped = new Map<string, string[]>();
+  for (const opportunity of opportunities) {
+    if (!opportunity.company_number) continue;
+    try {
+      const companyNumber = normaliseCompanyNumber(opportunity.company_number);
+      grouped.set(companyNumber, [...(grouped.get(companyNumber) ?? []), opportunity.id]);
+    } catch {
+      // Invalid source values remain available for human review but are never
+      // submitted to Companies House.
+    }
+  }
+  return grouped;
+}
+
+export function isDissolvedCompanyStatus(status: string): boolean {
+  return ["dissolved", "converted-closed", "closed"].includes(status.toLowerCase());
+}
+
+export function companyProfileEvidence(profile: CompanyProfile, opportunityId: string) {
+  return {
+    opportunity_id: opportunityId,
+    evidence_key: `companies-house:${profile.companyNumber}:profile`,
+    evidence_type: "company_profile",
+    title: `${profile.companyName} — Companies House profile`,
+    summary: `Company status: ${profile.companyStatus}; charges recorded: ${profile.hasCharges ? "yes" : "no"}; insolvency history flag: ${profile.hasInsolvencyHistory ? "yes" : "no"}.`,
+    source_reference: profile.companyNumber,
+    source_url: profile.sourceUrl,
+    observed_at: profile.observedAt,
+    payload: profile,
+    confidence: 100,
+    verification_status: "source_verified",
+    updated_at: profile.observedAt,
+  };
 }
 
 export async function fetchCompanyProfile(companyNumber: string, options: {

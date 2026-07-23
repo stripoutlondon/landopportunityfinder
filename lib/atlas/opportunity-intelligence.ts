@@ -36,6 +36,18 @@ export type OpportunityIntelligence = {
   constraints: Array<{ dataset: string; entity: string; name: string; reference: string | null }>;
   constraintStatus: "pending" | "clear" | "flagged";
   constraintDisclaimer: string | null;
+  inspire: {
+    checked: boolean;
+    status: "pending" | "matched" | "ambiguous" | "unmatched";
+    checkedAt: string | null;
+    parcels: Array<{
+      inspireId: string;
+      label: string | null;
+      nationalCadastralReference: string | null;
+      areaSqm: number;
+    }>;
+    disclaimer: string | null;
+  };
   verification: {
     title: { verified: boolean; sourceUrl: string | null; checkedAt: string | null };
     planning: { verified: boolean; sourceUrl: string | null; checkedAt: string | null; implementationStatus: string | null };
@@ -125,6 +137,20 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     : [];
   const constraintsChecked = Boolean(constraintScreen?.checkedAt);
   const constraintStatus = constraintsChecked ? (constraints.length ? "flagged" : "clear") : "pending";
+  const inspireScreen = raw?.atlas_inspire && typeof raw.atlas_inspire === "object"
+    ? raw.atlas_inspire as Record<string, unknown>
+    : null;
+  const inspireStatusValue = typeof inspireScreen?.status === "string" ? inspireScreen.status : "pending";
+  const inspireStatus = ["matched", "ambiguous", "unmatched"].includes(inspireStatusValue)
+    ? inspireStatusValue as "matched" | "ambiguous" | "unmatched"
+    : "pending";
+  const inspireParcels = Array.isArray(inspireScreen?.parcels)
+    ? inspireScreen.parcels.filter((item): item is { inspireId: string; label: string | null; nationalCadastralReference: string | null; areaSqm: number } =>
+      Boolean(item)
+      && typeof item === "object"
+      && typeof (item as { inspireId?: unknown }).inspireId === "string"
+      && typeof (item as { areaSqm?: unknown }).areaSqm === "number")
+    : [];
   const planningPosition = verificationValue(planningVerification, "status") ?? rawValue(raw, ["planning-permission-status", "development status", "status"]) ?? "Not supplied";
   const planningText = planningPosition.toLowerCase();
   const planningGroup: PlanningGroup = /not permissioned|expired|lapsed|withdrawn|refused/.test(planningText)
@@ -188,6 +214,7 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
   if (ownershipGroup === "unknown" || ownershipGroup === "mixed") evidenceGaps.push("clear ownership route");
   if (!accessVerified) evidenceGaps.push("highway and access evidence");
   if (!constraintsChecked) evidenceGaps.push("constraint screening");
+  if (!inspireScreen?.checkedAt) evidenceGaps.push("indicative Land Registry parcel screen");
   const nextActions: EvidenceAction[] = [];
   if (!opportunity.title_number || !opportunity.proprietor_name) nextActions.push({ type: "title", title: "Confirm title and proprietor", detail: "Obtain the current HM Land Registry title register and plan; do not infer ownership from the brownfield record.", priority: "high" });
   if (stalePlanning || (!planningVerified && (planningGroup === "unpermissioned" || !planningHistoryUrl))) nextActions.push({ type: "planning", title: "Verify the live planning position", detail: stalePlanning ? "Check whether the recorded permission was implemented, superseded or has lapsed." : "Review Hertsmere's planning portal, decision notice and supporting documents.", priority: "high" });
@@ -223,6 +250,13 @@ export function deriveOpportunityIntelligence(opportunity: Opportunity, now = ne
     constraints,
     constraintStatus,
     constraintDisclaimer: typeof constraintScreen?.disclaimer === "string" ? constraintScreen.disclaimer : null,
+    inspire: {
+      checked: Boolean(inspireScreen?.checkedAt),
+      status: inspireStatus,
+      checkedAt: typeof inspireScreen?.checkedAt === "string" ? inspireScreen.checkedAt : null,
+      parcels: inspireParcels,
+      disclaimer: typeof inspireScreen?.disclaimer === "string" ? inspireScreen.disclaimer : null,
+    },
     verification: {
       title: {
         verified: titleVerified,

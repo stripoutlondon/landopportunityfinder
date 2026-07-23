@@ -27,6 +27,13 @@ The preparation step also validates and extracts the Hertsmere INSPIRE GML,
 records its polygon count, coordinate reference system and SHA-256 digest, and
 keeps all generated licensed files under the Git-ignored `work/` directory.
 
+Run `scripts/import-hmlr-inspire.ps1` against the extracted GML after the
+corresponding Atlas deployment is live. The script keeps the source geometry
+local, retrieves the small set of geocoded Atlas candidates through a protected
+endpoint, and uploads only match identifiers, areas, provenance and ambiguity
+status. The source SHA-256 digest is stored with the run so results can be
+traced back to the exact monthly file.
+
 ## HM Land Registry bulk data
 
 1. Create an account at [Use land and property data](https://use-land-property-data.service.gov.uk/).

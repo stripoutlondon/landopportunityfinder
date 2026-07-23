@@ -2,7 +2,16 @@
 
 Atlas is an evidence-led land and property acquisition intelligence platform. The first operating territory is Hertsmere.
 
-## Release 0.8 capabilities
+## Release 0.9 capabilities
+
+- Batch Companies House enrichment for every matched Hertsmere corporate proprietor
+- Dissolved-company detection with official profile evidence stored against every connected opportunity
+- Local, streaming point-in-polygon matching across all 40,769 Hertsmere INSPIRE polygons
+- Protected candidate export and compact match-result ingestion without uploading licensed GML to Vercel
+- Indicative parcel intelligence, ambiguity handling and a mandatory current-title verification task
+- Full source-file SHA-256 provenance and explicit legal-boundary/ownership disclaimers
+
+Release 0.8 also provides:
 
 - Protected verification-evidence ingestion for official title, planning and access research
 - HTTPS-only evidence-source validation and repeat-safe evidence updates
@@ -100,6 +109,16 @@ When an Atlas lead has a verified `company_number`, send an authorised `POST` re
 
 with `Authorization: Bearer <ATLAS_INGESTION_SECRET>`. Atlas fetches the official company profile using the server-only Companies House key, updates the matched lead and stores traceable evidence. It does not search for or infer a private owner.
 
+To enrich every Hertsmere lead that already has a matched company number, send
+an authorised `POST` request to:
+
+```text
+/api/enrichment/companies-house/hertsmere
+```
+
+The batch is deduplicated by company number, uses limited concurrency and
+reports failures without discarding successful profiles.
+
 ## Analyst verification evidence
 
 Send an authorised `POST` request to:
@@ -138,6 +157,20 @@ Hertsmere subset locally, then send only that subset to Atlas:
 
 Both raw and prepared licensed data are ignored by Git. The import script asks
 for `ATLAS_INGESTION_SECRET` securely and does not save it.
+
+After the preparation step, run the local INSPIRE parcel matcher:
+
+```powershell
+.\scripts\import-hmlr-inspire.ps1 `
+  -GmlPath ".\work\hmlr-prepared\Hertsmere_Land_Registry_Cadastral_Parcels.gml"
+```
+
+The script securely downloads only the current Atlas candidate coordinates,
+streams the local British National Grid GML file, performs point-in-polygon
+matching and uploads only compact results. Licensed polygon geometry is never
+sent to GitHub or Vercel. An INSPIRE match is indicative only: it is not a legal
+boundary, does not prove ownership and never replaces a current title register
+and title plan.
 
 ## Official Hertsmere brownfield sync
 
