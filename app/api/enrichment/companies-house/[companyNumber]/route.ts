@@ -70,10 +70,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     if (insolvency) {
       for (const opportunityId of opportunityIds) {
         for (const task of insolvencyVerificationTasks(insolvency, opportunityId)) {
-          const { error: taskError } = await supabase
+          const { data: existingTask, error: taskLookupError } = await supabase
             .from("verification_tasks")
-            .upsert(task, { onConflict: "opportunity_id,task_type" });
-          if (taskError) throw new Error(taskError.message);
+            .select("id")
+            .eq("opportunity_id", task.opportunity_id)
+            .eq("task_type", task.task_type)
+            .maybeSingle();
+          if (taskLookupError) throw new Error(taskLookupError.message);
+          const taskResult = existingTask?.id
+            ? await supabase.from("verification_tasks").update(task).eq("id", existingTask.id)
+            : await supabase.from("verification_tasks").insert(task);
+          if (taskResult.error) throw new Error(taskResult.error.message);
         }
       }
     }
