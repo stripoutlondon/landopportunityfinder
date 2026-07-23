@@ -79,7 +79,7 @@ export async function fetchCompanyProfile(companyNumber: string, options: {
   now?: Date;
 } = {}): Promise<CompanyProfile> {
   const normalised = normaliseCompanyNumber(companyNumber);
-  const apiKey = options.apiKey ?? process.env.COMPANIES_HOUSE_API_KEY;
+  const apiKey = (options.apiKey ?? process.env.COMPANIES_HOUSE_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("Companies House enrichment is not configured");
   const fetcher = options.fetcher ?? fetch;
   const response = await fetcher(`https://api.company-information.service.gov.uk/company/${normalised}`, {
@@ -90,9 +90,19 @@ export async function fetchCompanyProfile(companyNumber: string, options: {
     },
     cache: "no-store",
   });
+  const responseText = await response.text();
   if (response.status === 404) throw new Error("Company was not found at Companies House");
-  if (!response.ok) throw new Error(`Companies House API returned ${response.status}`);
-  const body = await response.json() as CompaniesHouseResponse;
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const errorBody = JSON.parse(responseText) as { error?: string; message?: string };
+      detail = errorBody.message ?? errorBody.error ?? "";
+    } catch {
+      detail = responseText.trim();
+    }
+    throw new Error(`Companies House API returned ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ""}`);
+  }
+  const body = JSON.parse(responseText) as CompaniesHouseResponse;
   if (!body.company_number || !body.company_name || !body.company_status) throw new Error("Companies House returned an incomplete company profile");
   return {
     companyNumber: normaliseCompanyNumber(body.company_number),
