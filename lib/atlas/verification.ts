@@ -74,6 +74,27 @@ function buildRisks(opportunity: Opportunity, intelligence: OpportunityIntellige
       detail: "No reliable highway or lawful-access evidence has been recorded.",
     });
   }
+  if (intelligence.corporateSignal === "insolvency") {
+    risks.push({
+      severity: "moderate",
+      title: "Insolvency acquisition route",
+      detail: "Authority to sell, secured creditors and the appointed insolvency practitioner must be verified.",
+    });
+  }
+  if (intelligence.corporateSignal === "dissolved") {
+    risks.push({
+      severity: "moderate",
+      title: "Dissolved-company title route",
+      detail: "The title may have vested as bona vacantia; the lawful disposal route requires specialist verification.",
+    });
+  }
+  if (intelligence.corporateSignal === "unmatched") {
+    risks.push({
+      severity: "moderate",
+      title: "Corporate identifier is unmatched",
+      detail: "The recorded company number did not resolve and must be checked against the current official title.",
+    });
+  }
   return risks;
 }
 
@@ -85,7 +106,11 @@ export function assessOpportunityVerification(
   const materialRiskCount = risks.filter((risk) => risk.severity === "material").length;
   const moderateRiskCount = risks.filter((risk) => risk.severity === "moderate").length;
   const ownershipKnown = Boolean(opportunity.title_number && opportunity.proprietor_name);
-  const companyVerified = Boolean(opportunity.company_number && opportunity.company_status);
+  const companyVerified = Boolean(
+    opportunity.company_number
+    && opportunity.company_status
+    && intelligence.corporateSignal !== "unmatched",
+  );
   const planningLinked = Boolean(intelligence.planningHistoryUrl);
 
   const commercialPotential = clamp(
@@ -110,11 +135,15 @@ export function assessOpportunityVerification(
     + (opportunity.acquisition_route ? 6 : 0),
   );
   const evidenceQuality = intelligence.evidenceReadiness;
+  const corporatePriorityBonus = intelligence.corporateSignal === "dissolved"
+    ? 10
+    : intelligence.corporateSignal === "insolvency" ? 8 : 0;
   const verificationScore = clamp(
     commercialPotential * 0.38
     + deliverability * 0.27
     + acquisitionClarity * 0.17
-    + evidenceQuality * 0.18,
+    + evidenceQuality * 0.18
+    + corporatePriorityBonus,
   );
 
   const stage: VerificationStage = intelligence.verification.title.verified
@@ -135,20 +164,28 @@ export function assessOpportunityVerification(
   if (intelligence.constraintStatus === "clear") strengths.push("No entities returned by the initial constraints screen");
   if (ownershipKnown) strengths.push("Registered title and proprietor have been matched");
   if (companyVerified) strengths.push("Corporate proprietor status has been checked");
+  if (intelligence.corporateSignal === "insolvency") strengths.push("Corporate proprietor is in formal insolvency, creating a time-sensitive acquisition signal");
+  if (intelligence.corporateSignal === "dissolved") strengths.push("Dissolved-company ownership creates a specialist acquisition-route signal");
   if (intelligence.siteTypes.some((type) => ["Vacant or underused", "Car park", "Garage or automotive", "Commercial"].includes(type))) {
     strengths.push("Physical-use description suggests redevelopment or intensification potential");
   }
 
   const unknowns = [...intelligence.evidenceGaps];
-  const nextBestAction = !ownershipKnown
-    ? "Obtain and verify the current HM Land Registry title register and title plan."
-    : !planningLinked
-      ? "Verify the live planning history, decision notice and implementation position."
-      : companyVerified || !opportunity.company_number
-        ? risks.length
-          ? "Review the flagged constraints with authoritative mapping and professional advice."
-          : "Complete an acquisition appraisal and owner-contact strategy."
-        : "Check the corporate proprietor's current Companies House status and filing position.";
+  const nextBestAction = intelligence.corporateSignal === "unmatched"
+    ? "Correct the company identifier against the current official title register."
+    : intelligence.corporateSignal === "insolvency"
+      ? "Identify the appointed insolvency practitioner and confirm authority to deal with the property."
+      : intelligence.corporateSignal === "dissolved"
+        ? "Confirm the title and establish the applicable bona vacantia or restoration route."
+        : !ownershipKnown
+          ? "Obtain and verify the current HM Land Registry title register and title plan."
+          : !planningLinked
+            ? "Verify the live planning history, decision notice and implementation position."
+            : companyVerified || !opportunity.company_number
+              ? risks.length
+                ? "Review the flagged constraints with authoritative mapping and professional advice."
+                : "Complete an acquisition appraisal and owner-contact strategy."
+              : "Check the corporate proprietor's current Companies House status and filing position.";
 
   const committeeSummary = `${decision === "investigate" ? "Progress to focused investigation" : decision === "monitor" ? "Keep under review" : "Do not prioritise yet"}. `
     + `${strengths[0] ?? "The site has an incomplete opportunity thesis"}. `

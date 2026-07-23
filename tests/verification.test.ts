@@ -103,3 +103,34 @@ test("keeps an unscreened lead in monitoring rather than presenting it as verifi
   assert.equal(assessment.decision, "monitor");
   assert.equal(assessment.shortlistEligible, false);
 });
+
+test("raises a verified liquidation signal while preserving insolvency risk", () => {
+  const active = assessOpportunityVerification(opportunity({
+    title_number: "HD123456",
+    proprietor_name: "ATLAS PROPERTY LIMITED",
+    company_number: "10963682",
+    company_status: "active",
+  }));
+  const liquidation = assessOpportunityVerification(opportunity({
+    title_number: "HD123456",
+    proprietor_name: "ATLAS PROPERTY LIMITED",
+    company_number: "10963682",
+    company_status: "liquidation",
+  }));
+  assert.ok(liquidation.verificationScore > active.verificationScore);
+  assert.ok(liquidation.strengths.some((strength) => /formal insolvency/.test(strength)));
+  assert.ok(liquidation.risks.some((risk) => risk.title === "Insolvency acquisition route"));
+  assert.match(liquidation.nextBestAction, /insolvency practitioner/);
+});
+
+test("does not treat an unmatched company number as verified", () => {
+  const assessment = assessOpportunityVerification(opportunity({
+    title_number: "HD123456",
+    proprietor_name: "UNMATCHED PROPRIETOR",
+    company_number: "00058224",
+    company_status: "not-found",
+  }));
+  assert.ok(assessment.acquisitionClarity < 100);
+  assert.ok(assessment.risks.some((risk) => risk.title === "Corporate identifier is unmatched"));
+  assert.match(assessment.nextBestAction, /Correct the company identifier/);
+});

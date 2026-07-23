@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  classifyCompanyStatus,
+  companyLookupGapEvidence,
   companyProfileEvidence,
+  findCompanyProfileByExactName,
   fetchCompanyProfile,
   groupOpportunitiesByCompany,
   isDissolvedCompanyStatus,
+  isInsolvencyCompanyStatus,
   normaliseCompanyNumber,
 } from "../lib/atlas/enrichment/companies-house";
 
@@ -98,4 +102,52 @@ test("classifies dissolved statuses and builds traceable evidence", () => {
   assert.equal(evidence.evidence_key, "companies-house:01234567:profile");
   assert.equal(evidence.verification_status, "source_verified");
   assert.match(evidence.summary, /dissolved/);
+});
+
+test("classifies insolvency and unmatched corporate signals separately", () => {
+  assert.equal(isInsolvencyCompanyStatus("liquidation"), true);
+  assert.equal(isInsolvencyCompanyStatus("administration"), true);
+  assert.equal(isInsolvencyCompanyStatus("active"), false);
+  assert.equal(classifyCompanyStatus("liquidation"), "insolvency");
+  assert.equal(classifyCompanyStatus("dissolved"), "dissolved");
+  assert.equal(classifyCompanyStatus("not-found"), "unmatched");
+});
+
+test("uses an exact proprietor-name match to correct an invalid company number", async () => {
+  const requests: string[] = [];
+  const fetcher: typeof fetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+    if (url.includes("/search/companies")) {
+      return new Response(JSON.stringify({ items: [
+        { company_number: "07654321", title: "ATLAS PROPERTY LIMITED" },
+        { company_number: "11111111", title: "ATLAS PROPERTY HOLDINGS LIMITED" },
+      ] }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({
+      company_number: "07654321",
+      company_name: "ATLAS PROPERTY LIMITED",
+      company_status: "liquidation",
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const profile = await findCompanyProfileByExactName("Atlas Property Ltd", { apiKey: "key", fetcher });
+  assert.equal(profile?.companyNumber, "07654321");
+  assert.equal(profile?.companyStatus, "liquidation");
+  assert.equal(requests.length, 2);
+});
+
+test("does not guess when an exact proprietor-name search is ambiguous", async () => {
+  const fetcher: typeof fetch = async () => new Response(JSON.stringify({ items: [
+    { company_number: "07654321", title: "ATLAS PROPERTY LIMITED" },
+    { company_number: "08654321", title: "ATLAS PROPERTY LTD" },
+  ] }), { status: 200, headers: { "content-type": "application/json" } });
+  const profile = await findCompanyProfileByExactName("Atlas Property Limited", { apiKey: "key", fetcher });
+  assert.equal(profile, null);
+});
+
+test("creates explicit evidence when a corporate identifier cannot be matched", () => {
+  const evidence = companyLookupGapEvidence("00058224", "ATLAS PROPERTY LIMITED", "site-one", "2026-07-23T12:00:00Z");
+  assert.equal(evidence.evidence_type, "company_lookup_gap");
+  assert.equal(evidence.payload.matchStatus, "not-found");
+  assert.match(evidence.summary, /official title register/);
 });

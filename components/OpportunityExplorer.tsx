@@ -9,12 +9,14 @@ import type { Opportunity } from "@/lib/types";
 
 type SortMode = "verification" | "priority" | "readiness" | "capacity" | "area";
 type InvestigationFilter = "all" | "planning-anomaly" | "planning-linked" | "title-gap" | "constraints-flagged" | "constraints-clear" | "ready";
+type CorporateFilter = "all" | "insolvency" | "dissolved" | "unmatched" | "active" | "pending";
 
 export default function OpportunityExplorer({ items }: { items: Opportunity[] }) {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("all");
   const [planning, setPlanning] = useState("all");
   const [ownership, setOwnership] = useState("all");
+  const [corporate, setCorporate] = useState<CorporateFilter>("all");
   const [minimumHomes, setMinimumHomes] = useState(0);
   const [investigation, setInvestigation] = useState<InvestigationFilter>("all");
   const [decision, setDecision] = useState<"all" | VerificationDecision>("all");
@@ -32,17 +34,20 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
     if (intelligence.evidenceGaps.includes("current title and registered proprietor")) totals.titleGaps += 1;
     if (intelligence.constraintsChecked) totals.constraintsScreened += 1;
     if (intelligence.constraintStatus === "flagged") totals.constraintsFlagged += 1;
+    if (intelligence.corporateSignal === "insolvency") totals.insolvency += 1;
+    if (intelligence.corporateSignal === "dissolved") totals.dissolved += 1;
+    if (intelligence.corporateSignal === "unmatched") totals.companyUnmatched += 1;
     const assessment = assessOpportunityVerification(item, intelligence);
     if (assessment.decision === "investigate") totals.investigate += 1;
     if (assessment.decision === "monitor") totals.monitor += 1;
     if (assessment.decision === "hold") totals.hold += 1;
     return totals;
-  }, { planningAnomalies: 0, planningLinked: 0, ready: 0, titleGaps: 0, constraintsScreened: 0, constraintsFlagged: 0, investigate: 0, monitor: 0, hold: 0 }), [items]);
+  }, { planningAnomalies: 0, planningLinked: 0, ready: 0, titleGaps: 0, constraintsScreened: 0, constraintsFlagged: 0, insolvency: 0, dissolved: 0, companyUnmatched: 0, investigate: 0, monitor: 0, hold: 0 }), [items]);
 
   const filtered = useMemo(() => items.filter((item) => {
     const intelligence = deriveOpportunityIntelligence(item);
     const assessment = assessOpportunityVerification(item, intelligence);
-    const text = `${item.name} ${item.address ?? ""} ${item.postcode ?? ""} ${intelligence.planningReferences.join(" ")}`.toLowerCase();
+    const text = `${item.name} ${item.address ?? ""} ${item.postcode ?? ""} ${item.proprietor_name ?? ""} ${item.company_number ?? ""} ${intelligence.planningReferences.join(" ")}`.toLowerCase();
     const investigationMatch = investigation === "all"
       || (investigation === "planning-anomaly" && (intelligence.planningGroup === "unpermissioned" || intelligence.stalePlanning))
       || (investigation === "planning-linked" && Boolean(intelligence.planningHistoryUrl))
@@ -54,6 +59,7 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
       && (location === "all" || intelligence.location === location)
       && (planning === "all" || intelligence.planningGroup === planning)
       && (ownership === "all" || intelligence.ownershipGroup === ownership)
+      && (corporate === "all" || intelligence.corporateSignal === corporate)
       && (minimumHomes === 0 || (intelligence.maximumDwellings ?? 0) >= minimumHomes)
       && (decision === "all" || assessment.decision === decision)
       && investigationMatch;
@@ -63,7 +69,7 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
     if (sort === "capacity") return (deriveOpportunityIntelligence(b).maximumDwellings ?? 0) - (deriveOpportunityIntelligence(a).maximumDwellings ?? 0);
     if (sort === "area") return (b.area_sqm ?? 0) - (a.area_sqm ?? 0);
     return deriveOpportunityIntelligence(b).researchPriority - deriveOpportunityIntelligence(a).researchPriority;
-  }), [items, query, location, planning, ownership, minimumHomes, investigation, decision, sort]);
+  }), [items, query, location, planning, ownership, corporate, minimumHomes, investigation, decision, sort]);
 
   return <section className="explorer">
     <div className="analyst-metrics">
@@ -73,6 +79,9 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
       <Metric value={analystMetrics.titleGaps} label="title checks required" />
       <Metric value={analystMetrics.constraintsScreened} label="constraints screened" />
       <Metric value={analystMetrics.constraintsFlagged} label="constraint flags" />
+      <Metric value={analystMetrics.insolvency} label="corporate insolvency" />
+      <Metric value={analystMetrics.dissolved} label="dissolved proprietors" />
+      <Metric value={analystMetrics.companyUnmatched} label="company IDs to correct" />
       <Metric value={analystMetrics.investigate} label="investigate now" />
       <Metric value={analystMetrics.monitor} label="monitor" />
       <Metric value={analystMetrics.hold} label="hold" />
@@ -84,6 +93,7 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
         <label>Location<select value={location} onChange={(event) => setLocation(event.target.value)}><option value="all">All Hertsmere</option>{locations.map((name) => <option key={name}>{name}</option>)}</select></label>
         <label>Planning<select value={planning} onChange={(event) => setPlanning(event.target.value)}><option value="all">All positions</option><option value="unpermissioned">No current permission</option><option value="permissioned">Permissioned / approved</option><option value="other">Other / unclear</option></select></label>
         <label>Ownership<select value={ownership} onChange={(event) => setOwnership(event.target.value)}><option value="all">All ownership</option><option value="private">Private</option><option value="public">Public authority</option><option value="mixed">Mixed</option><option value="unknown">Unknown</option></select></label>
+        <label>Corporate status<select value={corporate} onChange={(event) => setCorporate(event.target.value as CorporateFilter)}><option value="all">All companies</option><option value="insolvency">Insolvency</option><option value="dissolved">Dissolved</option><option value="unmatched">Identifier unmatched</option><option value="active">Active</option><option value="pending">Not yet checked</option></select></label>
         <label>Minimum homes<select value={minimumHomes} onChange={(event) => setMinimumHomes(Number(event.target.value))}><option value="0">Any capacity</option><option value="5">5+</option><option value="10">10+</option><option value="25">25+</option><option value="50">50+</option></select></label>
         <label>Investigation<select value={investigation} onChange={(event) => setInvestigation(event.target.value as InvestigationFilter)}><option value="all">All evidence states</option><option value="planning-anomaly">Planning status check</option><option value="planning-linked">Direct planning link</option><option value="title-gap">Title check required</option><option value="constraints-flagged">Constraint flags</option><option value="constraints-clear">Constraint screen clear</option><option value="ready">70%+ evidence ready</option></select></label>
         <label>Atlas decision<select value={decision} onChange={(event) => setDecision(event.target.value as "all" | VerificationDecision)}><option value="all">All decisions</option><option value="investigate">Investigate now</option><option value="monitor">Monitor</option><option value="hold">Hold</option></select></label>
@@ -102,7 +112,7 @@ export default function OpportunityExplorer({ items }: { items: Opportunity[] })
         <td>{intelligence.planningPosition}<div className="tiny">{intelligence.planningAgeYears !== null ? `${intelligence.planningAgeYears} years since recorded decision` : intelligence.priorityReasons.slice(0, 2).join(" · ") || "Verify against council records"}</div></td>
         <td><span className={`constraint-state ${intelligence.constraintStatus}`}>{intelligence.constraintStatus}</span><div className="tiny">{intelligence.constraintsChecked ? `${intelligence.constraints.length} signals` : "Screen required"}</div></td>
         <td><strong>{intelligence.evidenceReadiness}%</strong><div className="readiness-track"><i style={{ width: `${intelligence.evidenceReadiness}%` }} /></div><div className="tiny">{intelligence.evidenceGaps.length} gaps</div></td>
-        <td><span className="badge">{intelligence.ownershipGroup}</span></td>
+        <td><span className="badge">{intelligence.ownershipGroup}</span>{item.company_number && <div className={`corporate-badge ${intelligence.corporateSignal}`}>{intelligence.corporateStatusLabel}</div>}</td>
       </tr>;
     })}</tbody></table>}</div>
   </section>;
